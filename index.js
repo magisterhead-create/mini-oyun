@@ -12,7 +12,7 @@ app.get("/", (req, res) => {
     <html>
       <head><meta charset="UTF-8"><title>Mini Oyun</title></head>
       <body style="font-family:sans-serif;padding:20px;">
-        <h1>Mini 1+1 Oyunu</h1>
+        <h1>5üzeri3</h1>
 
         <input id="name" placeholder="İsim" />
         <br/><br/>
