@@ -10,7 +10,7 @@ app.get("/", (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html>
-      <head><meta charset="UTF-8"><title>Mini Oyun</title></head>
+      <head><meta charset="UTF-8"><title>5uzeri3 kactir yusuf</title></head>
       <body style="font-family:sans-serif;padding:20px;">
         <h1>5üzeri3</h1>
 
