@@ -41,6 +41,7 @@ function getPublicPlayers(roomCode) {
   const room = rooms[roomCode];
   if (!room) return [];
   return Object.values(room.players).map((p) => ({
+    id: p.id,
     name: p.name,
     role: p.role,
     readyPhase: p.readyPhase,
@@ -61,7 +62,8 @@ function allLobbyReady(roomCode) {
   if (!room) return false;
   const arr = Object.values(room.players);
   if (arr.length < MAX_PLAYERS) return false;
-  return arr.every((p) => p.lobbyReady);
+  // Hem rol seçili hem lobbyReady true olmalı
+  return arr.every((p) => p.lobbyReady && p.role);
 }
 
 function broadcastPhase(roomCode) {
@@ -204,14 +206,8 @@ app.get("/", (req, res) => {
             <div class="label">İsminiz</div>
             <input id="nameInput" placeholder="Takma adınız" />
 
-            <div class="label" style="margin-top:10px;">Rolünüzü seçin</div>
-            <select id="roleSelect">
-              <option value="dedektif">Baş Dedektif</option>
-              <option value="polis">Polis</option>
-            </select>
-
-            <div id="roomCodeGroup" style="display:none;">
-              <div class="label" style="margin-top:10px;">Oda Kodu</div>
+            <div id="roomCodeGroup" style="margin-top:10px; display:none;">
+              <div class="label">Oda Kodu</div>
               <input id="roomCodeInput" placeholder="Örn: ABCD1" />
             </div>
 
@@ -225,7 +221,19 @@ app.get("/", (req, res) => {
             <h2>Lobby</h2>
             <div id="roomCodeDisplay" style="margin-bottom:8px; font-size:14px; opacity:0.8;"></div>
             <div id="myRoleInfo"></div>
-            <div id="playersList" style="margin-top:8px;"></div>
+
+            <div style="margin-top:10px;">
+              <div class="label">Rolünü seç</div>
+              <select id="lobbyRoleSelect">
+                <option value="dedektif">Baş Dedektif</option>
+                <option value="polis">Polis</option>
+              </select>
+              <button id="setRoleBtn" style="margin-top:6px;">Rolü Kaydet</button>
+              <div id="roleError" class="message" style="display:none;background:#7f1d1d;"></div>
+            </div>
+
+            <div id="playersList" style="margin-top:12px;"></div>
+
             <div class="lobby-actions">
               <button id="lobbyReadyBtn">Hazırım</button>
               <button id="startGameBtn" style="display:none;">Oyunu Başlat</button>
@@ -270,7 +278,6 @@ app.get("/", (req, res) => {
           // Bağlantı ekranı
           const connectionSection = document.getElementById("connectionSection");
           const nameInput = document.getElementById("nameInput");
-          const roleSelect = document.getElementById("roleSelect");
           const roomCodeGroup = document.getElementById("roomCodeGroup");
           const roomCodeInput = document.getElementById("roomCodeInput");
           const connectBtn = document.getElementById("connectBtn");
@@ -286,6 +293,9 @@ app.get("/", (req, res) => {
           const lobbyReadyBtn = document.getElementById("lobbyReadyBtn");
           const startGameBtn = document.getElementById("startGameBtn");
           const backToMenuBtn = document.getElementById("backToMenuBtn");
+          const lobbyRoleSelect = document.getElementById("lobbyRoleSelect");
+          const setRoleBtn = document.getElementById("setRoleBtn");
+          const roleError = document.getElementById("roleError");
 
           // Faz bölümü
           const phaseSection = document.getElementById("phaseSection");
@@ -310,6 +320,19 @@ app.get("/", (req, res) => {
           let myRoomCode = null;
           let currentPhase = 0;
           let mode = null; // "host" veya "join"
+          let myLobbyReady = false;
+
+          function updateMyRoleInfo() {
+            if (myRole === "dedektif") {
+              myRoleInfo.textContent = "Rolün: Baş Dedektif";
+              lobbyRoleSelect.value = "dedektif";
+            } else if (myRole === "polis") {
+              myRoleInfo.textContent = "Rolün: Polis";
+              lobbyRoleSelect.value = "polis";
+            } else {
+              myRoleInfo.textContent = "Rolün: (henüz seçilmedi)";
+            }
+          }
 
           function resetUIToMenu() {
             menuSection.style.display = "block";
@@ -331,6 +354,8 @@ app.get("/", (req, res) => {
             finalInfo.textContent = "";
             phaseInfo.style.display = "none";
             phaseInfo.textContent = "";
+            roleError.style.display = "none";
+            roleError.textContent = "";
 
             phaseReadyBtn.disabled = false;
             submitAnswerBtn.disabled = false;
@@ -343,8 +368,10 @@ app.get("/", (req, res) => {
             myRole = null;
             currentPhase = 0;
             mode = null;
+            myLobbyReady = false;
 
             lobbyReadyBtn.disabled = false;
+            lobbyReadyBtn.textContent = "Hazırım";
             startGameBtn.disabled = false;
           }
 
@@ -370,7 +397,6 @@ app.get("/", (req, res) => {
           // Bağlan / Devam et
           connectBtn.addEventListener("click", () => {
             const name = nameInput.value.trim();
-            const role = roleSelect.value;
             const roomCode = roomCodeInput.value.trim().toUpperCase();
 
             joinError.style.display = "none";
@@ -389,21 +415,29 @@ app.get("/", (req, res) => {
             }
 
             if (mode === "host") {
-              socket.emit("createRoom", { name, role });
+              socket.emit("createRoom", { name });
             } else {
               if (!roomCode) {
                 joinError.style.display = "block";
                 joinError.textContent = "Odaya katılmak için oda kodu girmelisin.";
                 return;
               }
-              socket.emit("joinRoom", { name, role, roomCode });
+              socket.emit("joinRoom", { name, roomCode });
             }
           });
 
-          // Lobby hazırım
+          // Lobby hazırım (toggle)
           lobbyReadyBtn.addEventListener("click", () => {
-            socket.emit("lobbyReady");
-            lobbyReadyBtn.disabled = true;
+            const newReady = !myLobbyReady;
+            socket.emit("lobbyReadyToggle", { ready: newReady });
+          });
+
+          // Rol seçimi
+          setRoleBtn.addEventListener("click", () => {
+            const newRole = lobbyRoleSelect.value;
+            roleError.style.display = "none";
+            roleError.textContent = "";
+            socket.emit("chooseRole", { role: newRole });
           });
 
           // Oyunu başlat (sadece host)
@@ -456,9 +490,9 @@ app.get("/", (req, res) => {
           socket.on("joinSuccess", (data) => {
             connectionSection.style.display = "none";
             lobbySection.style.display = "block";
-            myRole = data.role;
             myRoomCode = data.roomCode || myRoomCode;
-            myRoleInfo.textContent = "Rolün: " + (myRole === "dedektif" ? "Baş Dedektif" : "Polis");
+            myRole = data.role || null;
+            updateMyRoleInfo();
             if (myRoomCode) {
               roomCodeDisplay.textContent = "Oda Kodu: " + myRoomCode;
             }
@@ -476,10 +510,27 @@ app.get("/", (req, res) => {
             joinError.textContent = msg;
           });
 
+          socket.on("roleError", (msg) => {
+            roleError.style.display = "block";
+            roleError.textContent = msg;
+          });
+
           socket.on("playersUpdate", (data) => {
+            // Kendi rol ve hazır durumumu güncelle
+            const me = data.players.find((p) => p.id === myId);
+            if (me) {
+              myRole = me.role || null;
+              myLobbyReady = !!me.lobbyReady;
+              lobbyReadyBtn.textContent = myLobbyReady ? "Hazır değilim" : "Hazırım";
+              updateMyRoleInfo();
+            }
+
             const list = data.players
               .map((p) => {
-                const roleLabel = p.role === "dedektif" ? "Baş Dedektif" : "Polis";
+                let roleLabel;
+                if (p.role === "dedektif") roleLabel = "Baş Dedektif";
+                else if (p.role === "polis") roleLabel = "Polis";
+                else roleLabel = "Rol seçilmedi";
 
                 let readyHtml = "";
                 if (currentPhase === 0) {
@@ -516,7 +567,7 @@ app.get("/", (req, res) => {
             phaseInfo.style.display = "none";
             phaseReadyBtn.disabled = false;
 
-            // Lobby'yi kapatmıyoruz; sağda oyuncuları görmeye devam ediyorsun
+            // Lobby açık kalıyor (sağda oyuncuları görmeye devam edersin)
             if (data.phase >= 1 && data.phase <= 3) {
               finalSection.style.display = "none";
               resultSection.style.display = "none";
@@ -562,7 +613,7 @@ io.on("connection", (socket) => {
   socket.emit("welcome", { id: socket.id });
 
   // Oda kurma
-  socket.on("createRoom", ({ name, role }) => {
+  socket.on("createRoom", ({ name }) => {
     const roomCode = generateRoomCode();
 
     rooms[roomCode] = {
@@ -575,7 +626,7 @@ io.on("connection", (socket) => {
     rooms[roomCode].players[socket.id] = {
       id: socket.id,
       name: name || "Anonim",
-      role,
+      role: null,
       readyPhase: 0,
       lobbyReady: false,
       answer: null
@@ -585,12 +636,12 @@ io.on("connection", (socket) => {
     socket.data.roomCode = roomCode;
 
     socket.emit("roomCreated", { roomCode });
-    socket.emit("joinSuccess", { role, roomCode, isHost: true });
+    socket.emit("joinSuccess", { role: null, roomCode, isHost: true });
     io.to(roomCode).emit("playersUpdate", { players: getPublicPlayers(roomCode) });
   });
 
   // Odaya katılma
-  socket.on("joinRoom", ({ name, role, roomCode }) => {
+  socket.on("joinRoom", ({ name, roomCode }) => {
     roomCode = (roomCode || "").toUpperCase();
     const room = rooms[roomCode];
 
@@ -605,16 +656,10 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const rolesInUse = Object.values(room.players).map((p) => p.role);
-    if (rolesInUse.includes(role)) {
-      socket.emit("joinError", "Bu rol zaten alınmış. Diğer rolü seçmeyi deneyin.");
-      return;
-    }
-
     room.players[socket.id] = {
       id: socket.id,
       name: name || "Anonim",
-      role,
+      role: null,
       readyPhase: 0,
       lobbyReady: false,
       answer: null
@@ -623,21 +668,49 @@ io.on("connection", (socket) => {
     socket.join(roomCode);
     socket.data.roomCode = roomCode;
 
-    socket.emit("joinSuccess", { role, roomCode, isHost: false });
+    socket.emit("joinSuccess", { role: null, roomCode, isHost: false });
     io.to(roomCode).emit("playersUpdate", { players: getPublicPlayers(roomCode) });
 
-    io.to(roomCode).emit("lobbyMessage", "İki oyuncu da bağlandıysa 'Hazırım' butonuna basın. Host 'Oyunu Başlat' dediğinde oyun başlayacak.");
+    io.to(roomCode).emit(
+      "lobbyMessage",
+      "Oyuncular rol seçip 'Hazırım' dedikten sonra host 'Oyunu Başlat' ile oyunu başlatabilir."
+    );
   });
 
-  // Lobby hazırım
-  socket.on("lobbyReady", () => {
+  // Lobby hazır toggle
+  socket.on("lobbyReadyToggle", ({ ready }) => {
     const roomCode = socket.data?.roomCode;
     if (!roomCode || !rooms[roomCode]) return;
 
     const room = rooms[roomCode];
     if (!room.players[socket.id]) return;
 
-    room.players[socket.id].lobbyReady = true;
+    room.players[socket.id].lobbyReady = !!ready;
+    io.to(roomCode).emit("playersUpdate", { players: getPublicPlayers(roomCode) });
+  });
+
+  // Rol seçimi
+  socket.on("chooseRole", ({ role }) => {
+    const roomCode = socket.data?.roomCode;
+    if (!roomCode || !rooms[roomCode]) return;
+
+    const room = rooms[roomCode];
+    if (!room.players[socket.id]) return;
+
+    if (role !== "dedektif" && role !== "polis") {
+      return;
+    }
+
+    // Rol başka biri tarafından alınmış mı?
+    const used = Object.values(room.players).some(
+      (p) => p.role === role && p.id !== socket.id
+    );
+    if (used) {
+      socket.emit("roleError", "Bu rol zaten alınmış. Diğer rolü seçmeyi dene.");
+      return;
+    }
+
+    room.players[socket.id].role = role;
     io.to(roomCode).emit("playersUpdate", { players: getPublicPlayers(roomCode) });
   });
 
@@ -652,7 +725,10 @@ io.on("connection", (socket) => {
     }
 
     if (!allLobbyReady(roomCode)) {
-      socket.emit("lobbyMessage", "Tüm oyuncular hazır olmadan oyunu başlatamazsın.");
+      socket.emit(
+        "lobbyMessage",
+        "Tüm oyuncular hem rol seçmiş hem de hazır olmuş olmalı."
+      );
       return;
     }
 
@@ -703,7 +779,10 @@ io.on("connection", (socket) => {
       const allCorrect = arr.every((p) => normalize(p.answer) === correct);
 
       if (allCorrect) {
-        io.to(roomCode).emit("finalResult", { success: true, correctAnswer: room.puzzle.answer });
+        io.to(roomCode).emit("finalResult", {
+          success: true,
+          correctAnswer: room.puzzle.answer
+        });
       } else {
         io.to(roomCode).emit("finalResult", { success: false });
         arr.forEach((p) => (p.answer = null));
@@ -731,7 +810,10 @@ io.on("connection", (socket) => {
         p.answer = null;
       });
       io.to(roomCode).emit("playersUpdate", { players: getPublicPlayers(roomCode) });
-      io.to(roomCode).emit("lobbyMessage", "Bir oyuncu lobiden ayrıldı. Oyun resetlendi.");
+      io.to(roomCode).emit(
+        "lobbyMessage",
+        "Bir oyuncu lobiden ayrıldı. Oyun resetlendi."
+      );
     }
   });
 
@@ -754,7 +836,10 @@ io.on("connection", (socket) => {
         p.answer = null;
       });
       io.to(roomCode).emit("playersUpdate", { players: getPublicPlayers(roomCode) });
-      io.to(roomCode).emit("lobbyMessage", "Bir oyuncu ayrıldı. Oyun resetlendi.");
+      io.to(roomCode).emit(
+        "lobbyMessage",
+        "Bir oyuncu ayrıldı. Oyun resetlendi."
+      );
     }
   });
 });
