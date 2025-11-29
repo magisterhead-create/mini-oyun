@@ -158,13 +158,31 @@ app.get("/", (req, res) => {
           .phase-box {
             white-space: pre-line;
           }
+          .menu-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+          }
+          .menu-buttons button {
+            flex: 1;
+          }
         </style>
       </head>
       <body>
         <div class="container">
           <h1>Baş Dedektif & Polis</h1>
 
-          <div class="section" id="connectionSection">
+          <!-- 1) MENÜ: Oda Oluştur / Odaya Katıl -->
+          <div class="section" id="menuSection">
+            <h2>Ne yapmak istiyorsun?</h2>
+            <div class="menu-buttons">
+              <button id="hostBtn">Oda Oluştur</button>
+              <button id="joinMenuBtn">Odaya Katıl</button>
+            </div>
+          </div>
+
+          <!-- 2) BAĞLANTI EKRANI: İsim, Rol (+ gerekiyorsa oda kodu) -->
+          <div class="section" id="connectionSection" style="display:none;">
             <div class="label">İsminiz</div>
             <input id="nameInput" placeholder="Takma adınız" />
 
@@ -174,19 +192,16 @@ app.get("/", (req, res) => {
               <option value="polis">Polis</option>
             </select>
 
-            <div class="label" style="margin-top:10px;">Oda Modu</div>
-            <select id="modeSelect">
-              <option value="host">Oda Kur</option>
-              <option value="join">Odaya Katıl</option>
-            </select>
+            <div id="roomCodeGroup" style="display:none;">
+              <div class="label" style="margin-top:10px;">Oda Kodu</div>
+              <input id="roomCodeInput" placeholder="Örn: ABCD1" />
+            </div>
 
-            <div class="label" style="margin-top:10px;">Oda Kodu (Odaya Katıl için)</div>
-            <input id="roomCodeInput" placeholder="Örn: ABCD1" />
-
-            <button id="joinBtn" style="margin-top:10px;">Bağlan</button>
+            <button id="connectBtn" style="margin-top:10px;">Devam et</button>
             <div id="joinError" class="message" style="display:none;background:#7f1d1d;"></div>
           </div>
 
+          <!-- 3) LOBBY -->
           <div class="section" id="lobbySection" style="display:none;">
             <h2>Lobby</h2>
             <div id="roomCodeDisplay" style="margin-bottom:8px; font-size:14px; opacity:0.8;"></div>
@@ -195,6 +210,7 @@ app.get("/", (req, res) => {
             <div id="lobbyMessage" class="message" style="display:none;"></div>
           </div>
 
+          <!-- 4) İPUCU FAZLARI -->
           <div class="section" id="phaseSection" style="display:none;">
             <h2 id="phaseTitle">Bölüm</h2>
             <div id="phaseContent" class="phase-box"></div>
@@ -202,6 +218,7 @@ app.get("/", (req, res) => {
             <div id="phaseInfo" class="message" style="display:none;"></div>
           </div>
 
+          <!-- 5) FİNAL CEVAP -->
           <div class="section" id="finalSection" style="display:none;">
             <h2>Son Aşama: Çözüm</h2>
             <div id="finalQuestion"></div>
@@ -210,6 +227,7 @@ app.get("/", (req, res) => {
             <div id="finalInfo" class="message" style="display:none;"></div>
           </div>
 
+          <!-- 6) SONUÇ -->
           <div class="section" id="resultSection" style="display:none;">
             <h2>Sonuç</h2>
             <div id="resultText"></div>
@@ -220,31 +238,42 @@ app.get("/", (req, res) => {
         <script>
           const socket = io();
 
+          // Menü
+          const menuSection = document.getElementById("menuSection");
+          const hostBtn = document.getElementById("hostBtn");
+          const joinMenuBtn = document.getElementById("joinMenuBtn");
+
+          // Bağlantı ekranı
+          const connectionSection = document.getElementById("connectionSection");
           const nameInput = document.getElementById("nameInput");
           const roleSelect = document.getElementById("roleSelect");
-          const modeSelect = document.getElementById("modeSelect");
+          const roomCodeGroup = document.getElementById("roomCodeGroup");
           const roomCodeInput = document.getElementById("roomCodeInput");
-          const joinBtn = document.getElementById("joinBtn");
+          const connectBtn = document.getElementById("connectBtn");
           const joinError = document.getElementById("joinError");
 
+          // Lobby
           const lobbySection = document.getElementById("lobbySection");
           const myRoleInfo = document.getElementById("myRoleInfo");
           const roomCodeDisplay = document.getElementById("roomCodeDisplay");
           const playersList = document.getElementById("playersList");
           const lobbyMessage = document.getElementById("lobbyMessage");
 
+          // Faz bölümü
           const phaseSection = document.getElementById("phaseSection");
           const phaseTitle = document.getElementById("phaseTitle");
           const phaseContent = document.getElementById("phaseContent");
           const phaseReadyBtn = document.getElementById("phaseReadyBtn");
           const phaseInfo = document.getElementById("phaseInfo");
 
+          // Final
           const finalSection = document.getElementById("finalSection");
           const finalQuestion = document.getElementById("finalQuestion");
           const answerInput = document.getElementById("answerInput");
           const submitAnswerBtn = document.getElementById("submitAnswerBtn");
           const finalInfo = document.getElementById("finalInfo");
 
+          // Sonuç
           const resultSection = document.getElementById("resultSection");
           const resultText = document.getElementById("resultText");
 
@@ -252,15 +281,37 @@ app.get("/", (req, res) => {
           let myRole = null;
           let myRoomCode = null;
           let currentPhase = 0;
+          let mode = null; // "host" veya "join"
 
-          joinBtn.addEventListener("click", () => {
+          // --- Menü butonları ---
+          hostBtn.addEventListener("click", () => {
+            mode = "host";
+            menuSection.style.display = "none";
+            connectionSection.style.display = "block";
+            roomCodeGroup.style.display = "none"; // host iken oda kodu girmeye gerek yok
+          });
+
+          joinMenuBtn.addEventListener("click", () => {
+            mode = "join";
+            menuSection.style.display = "none";
+            connectionSection.style.display = "block";
+            roomCodeGroup.style.display = "block"; // join iken oda kodu gerekli
+          });
+
+          // Bağlan / Devam et
+          connectBtn.addEventListener("click", () => {
             const name = nameInput.value.trim();
             const role = roleSelect.value;
-            const mode = modeSelect.value;
             const roomCode = roomCodeInput.value.trim().toUpperCase();
 
             joinError.style.display = "none";
             joinError.textContent = "";
+
+            if (!mode) {
+              joinError.style.display = "block";
+              joinError.textContent = "Önce menüden bir seçenek seçmelisin.";
+              return;
+            }
 
             if (!name) {
               joinError.style.display = "block";
@@ -280,6 +331,7 @@ app.get("/", (req, res) => {
             }
           });
 
+          // Faz hazır
           phaseReadyBtn.addEventListener("click", () => {
             if (currentPhase >= 1 && currentPhase <= 3) {
               socket.emit("phaseReady", { phase: currentPhase });
@@ -289,6 +341,7 @@ app.get("/", (req, res) => {
             }
           });
 
+          // Cevap gönder
           submitAnswerBtn.addEventListener("click", () => {
             const ans = answerInput.value.trim();
             if (!ans) {
@@ -315,7 +368,7 @@ app.get("/", (req, res) => {
           });
 
           socket.on("joinSuccess", (data) => {
-            document.getElementById("connectionSection").style.display = "none";
+            connectionSection.style.display = "none";
             lobbySection.style.display = "block";
             myRole = data.role;
             myRoomCode = data.roomCode || myRoomCode;
