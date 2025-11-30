@@ -95,174 +95,466 @@ app.get("/", (req, res) => {
     <html lang="tr">
       <head>
         <meta charset="UTF-8" />
-        <title>Dedektif & Polis Oyunu</title>
+        <title>Baş Dedektif & Polis</title>
         <style>
-          body {
-            font-family: sans-serif;
-            background: #111;
-            color: #f5f5f5;
-            display: flex;
-            justify-content: center;
-            padding-top: 40px;
+          :root {
+            --accent: #3b82f6;
+            --accent-soft: rgba(59, 130, 246, 0.15);
+            --bg: #050816;
+            --bg-card: #111827;
+            --bg-section: #111;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --danger: #b91c1c;
+            --success: #16a34a;
           }
-          .container {
-            width: 600px;
-            background: #1c1c1c;
-            border-radius: 8px;
-            padding: 20px 24px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.6);
-          }
-          h1, h2, h3 {
-            margin-top: 0;
-          }
-          .section {
-            margin-bottom: 20px;
-            padding: 12px;
-            border-radius: 6px;
-            background: #222;
-          }
-          .label {
-            font-size: 14px;
-            opacity: 0.8;
-          }
-          input, button, select {
-            margin-top: 8px;
-            padding: 6px 8px;
-            border-radius: 4px;
-            border: none;
-            font-size: 14px;
-          }
-          input, select {
-            width: 100%;
+          * {
             box-sizing: border-box;
           }
+          body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: radial-gradient(circle at top, #1d2538, #050816);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 40px 12px;
+          }
+          .container {
+            width: 100%;
+            max-width: 900px;
+            background: radial-gradient(circle at top left, #1f2937, #020617);
+            border-radius: 16px;
+            padding: 24px 24px 16px;
+            box-shadow:
+              0 25px 50px -12px rgba(0,0,0,0.8),
+              0 0 0 1px rgba(148,163,184,0.1);
+            position: relative;
+            overflow: hidden;
+          }
+          .container::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at top right, rgba(59,130,246,0.12), transparent 55%);
+            opacity: 0.9;
+            pointer-events: none;
+          }
+          .content {
+            position: relative;
+            z-index: 1;
+          }
+          h1 {
+            margin: 0 0 4px;
+            font-size: 28px;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+          }
+          .game-subtitle {
+            margin: 0 0 16px;
+            font-size: 13px;
+            color: var(--text-muted);
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+          }
+          .section {
+            margin-bottom: 16px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            background: rgba(15,23,42,0.92);
+            border: 1px solid rgba(148,163,184,0.25);
+          }
+          .section.main-menu {
+            margin-bottom: 20px;
+          }
+          .screen-title {
+            margin: 0 0 4px;
+            font-size: 18px;
+          }
+          .screen-subtitle {
+            margin: 0 0 14px;
+            font-size: 13px;
+            color: var(--text-muted);
+          }
+
+          .label {
+            font-size: 13px;
+            opacity: 0.9;
+            color: var(--text-muted);
+          }
+          input, select {
+            margin-top: 6px;
+            padding: 6px 9px;
+            border-radius: 8px;
+            border: 1px solid rgba(148,163,184,0.4);
+            font-size: 14px;
+            width: 100%;
+            background: rgba(15,23,42,0.9);
+            color: var(--text-main);
+            outline: none;
+          }
+          input:focus, select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px rgba(37,99,235,0.6);
+          }
+
           button {
+            margin-top: 8px;
+            padding: 7px 10px;
+            border-radius: 999px;
+            border: none;
+            font-size: 14px;
             cursor: pointer;
-            background: #3b82f6;
-            color: white;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
           }
           button:disabled {
-            background: #555;
+            background: #4b5563;
             cursor: default;
+            transform: none;
+            box-shadow: none;
           }
+
+          .btn-primary {
+            background: linear-gradient(135deg, #2563eb, #4f46e5);
+            color: #f9fafb;
+            box-shadow: 0 8px 18px rgba(37,99,235,0.45);
+          }
+          .btn-primary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 25px rgba(37,99,235,0.6);
+          }
+
+          .btn-secondary {
+            background: rgba(15,23,42,0.9);
+            color: #e5e7eb;
+            border: 1px solid rgba(148,163,184,0.6);
+          }
+          .btn-secondary:hover:not(:disabled) {
+            background: rgba(30,64,175,0.4);
+            border-color: rgba(129,140,248,0.8);
+            transform: translateY(-1px);
+          }
+
+          .btn-ghost {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid rgba(75,85,99,0.9);
+          }
+          .btn-ghost:hover {
+            background: rgba(31,41,55,0.9);
+            color: #e5e7eb;
+          }
+
+          .btn-link {
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            font-size: 13px;
+            padding: 4px 6px;
+          }
+          .btn-link:hover {
+            color: var(--accent);
+            text-decoration: underline;
+            background: rgba(15,23,42,0.6);
+          }
+
+          .btn-small {
+            font-size: 12px;
+            padding: 5px 10px;
+          }
+
+          .btn-large {
+            padding: 10px 14px;
+            font-size: 15px;
+            font-weight: 600;
+          }
+
+          .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 8px;
+          }
+          @media (min-width: 600px) {
+            .menu-buttons {
+              flex-direction: row;
+            }
+          }
+
           #playersList {
-            font-size: 14px;
+            font-size: 13px;
           }
           .tag {
             display: inline-block;
-            padding: 2px 6px;
+            padding: 3px 7px;
             margin-left: 4px;
-            border-radius: 4px;
+            border-radius: 999px;
             font-size: 11px;
-            background: #333;
+            background: #374151;
           }
           .tag.ready {
-            background: #16a34a;
+            background: var(--success);
+            color: #ecfdf5;
           }
+
           .message {
-            padding: 8px;
-            background: #333;
-            border-radius: 4px;
+            padding: 8px 9px;
+            background: rgba(31,41,55,0.95);
+            border-radius: 9px;
             margin-top: 8px;
-            font-size: 14px;
+            font-size: 13px;
+            border: 1px solid rgba(55,65,81,0.9);
           }
+          .message.error {
+            background: rgba(127,29,29,0.9);
+            border-color: rgba(248,113,113,0.7);
+            color: #fee2e2;
+          }
+          .message.info-soft {
+            background: rgba(30,64,175,0.45);
+            border-color: rgba(129,140,248,0.8);
+          }
+
           .phase-box {
             white-space: pre-line;
+            font-size: 14px;
+            line-height: 1.5;
           }
-          .menu-buttons {
+
+          .lobby-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr);
+            gap: 12px;
+          }
+          @media (max-width: 720px) {
+            .lobby-layout {
+              grid-template-columns: minmax(0, 1fr);
+            }
+          }
+
+          .sub-panel {
+            margin-top: 8px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: rgba(15,23,42,0.95);
+            border: 1px dashed rgba(148,163,184,0.5);
+            font-size: 13px;
+            color: var(--text-muted);
+          }
+
+          .footer-bar {
+            margin-top: 14px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(55,65,81,0.9);
             display: flex;
+            justify-content: space-between;
             gap: 10px;
-            margin-top: 12px;
           }
-          .menu-buttons button {
-            flex: 1;
-          }
-          .lobby-actions {
-            margin-top: 10px;
+
+          .footer-bar-left {
             display: flex;
             gap: 8px;
-            flex-wrap: wrap;
           }
-          .lobby-actions button {
-            flex: 1;
+          .footer-bar-right {
+            font-size: 11px;
+            color: rgba(148,163,184,0.8);
+            align-self: center;
+          }
+
+          /* Overlay */
+          .overlay-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+          }
+          .overlay-card {
+            background: radial-gradient(circle at top, #111827, #020617);
+            border-radius: 14px;
+            border: 1px solid rgba(148,163,184,0.5);
+            padding: 16px 18px 12px;
+            max-width: 420px;
+            width: calc(100% - 32px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.85);
+          }
+          .overlay-card h3 {
+            margin: 0 0 6px;
+            font-size: 18px;
+          }
+          .overlay-card p {
+            margin: 4px 0;
+            font-size: 13px;
+            color: var(--text-muted);
+          }
+          .overlay-footer {
+            margin-top: 10px;
+            display: flex;
+            justify-content: flex-end;
           }
         </style>
       </head>
       <body>
         <div class="container">
-          <h1>Baş Dedektif & Polis</h1>
+          <div class="content">
+            <h1>Baş Dedektif & Polis</h1>
+            <div class="game-subtitle">ONLINE CO-OP DEDÜKTİF OYUNU</div>
 
-          <!-- 1) ANA MENÜ -->
-          <div class="section" id="menuSection">
-            <h2>Ne yapmak istiyorsun?</h2>
-            <div class="menu-buttons">
-              <button id="hostBtn">Oda Oluştur</button>
-              <button id="joinMenuBtn">Odaya Katıl</button>
+            <!-- 1) ANA MENÜ -->
+            <div class="section main-menu" id="menuSection">
+              <h2 class="screen-title">Ana Menü</h2>
+              <p class="screen-subtitle">
+                Bir oda kurup arkadaşını davet et veya oda koduyla bir oyuna katıl.
+              </p>
+              <div class="menu-buttons">
+                <button id="hostBtn" class="btn-primary btn-large">
+                  ODA OLUŞTUR
+                </button>
+                <button id="joinMenuBtn" class="btn-secondary btn-large">
+                  ODAYA KATIL
+                </button>
+              </div>
+
+              <button id="settingsBtn" class="btn-ghost btn-small" style="margin-top:14px;">
+                ⚙️ Settings
+              </button>
+              <div id="settingsPanel" class="sub-panel" style="display:none;">
+                <div style="margin-bottom:4px; font-weight:500; color:#e5e7eb;">Oyun Ayarları (placeholder)</div>
+                <p>Şimdilik sadece görsel. İleride ses seviyesi, dil, tema gibi ayarları buraya ekleyebiliriz.</p>
+              </div>
+
+              <div class="footer-bar">
+                <div class="footer-bar-left">
+                  <button id="howToBtn" class="btn-link">How to Play</button>
+                  <button id="creditsBtn" class="btn-link">Credits</button>
+                </div>
+                <div class="footer-bar-right">
+                  v0.1 · prototip build
+                </div>
+              </div>
+            </div>
+
+            <!-- 2) BAĞLANTI EKRANI -->
+            <div class="section" id="connectionSection" style="display:none;">
+              <h2 class="screen-title">Bağlan</h2>
+              <p class="screen-subtitle">
+                İsmini yaz, sonra odaya bağlan. Rolünü lobide seçeceksin.
+              </p>
+
+              <div class="label">İsmin</div>
+              <input id="nameInput" placeholder="Takma adın (örn: DedektifAyşe)" />
+
+              <div id="roomCodeGroup" style="margin-top:12px; display:none;">
+                <div class="label">Oda Kodu</div>
+                <input id="roomCodeInput" placeholder="Örn: ABCD1" />
+              </div>
+
+              <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;">
+                <button id="connectBtn" class="btn-primary" style="flex:1;">Devam et</button>
+                <button id="backToMenuFromConnectBtn" class="btn-secondary" style="flex:1;">Ana menüye dön</button>
+              </div>
+
+              <div id="joinError" class="message error" style="display:none;"></div>
+            </div>
+
+            <!-- 3) LOBBY + OYUN GÖRÜNÜMÜ -->
+            <div class="lobby-layout">
+              <!-- Lobby Section -->
+              <div class="section" id="lobbySection" style="display:none;">
+                <h2 class="screen-title">Lobby</h2>
+                <p class="screen-subtitle">
+                  Rolünü seç, hazır ol ve host oyunu başlatsın.
+                </p>
+
+                <div id="roomCodeDisplay" style="margin-bottom:8px; font-size:13px; color:var(--text-muted);"></div>
+                <div id="myRoleInfo" style="font-size:13px; margin-bottom:8px;"></div>
+
+                <div style="margin-top:6px;">
+                  <div class="label">Rolünü seç</div>
+                  <select id="lobbyRoleSelect" style="margin-top:6px;">
+                    <option value="dedektif">Baş Dedektif</option>
+                    <option value="polis">Polis</option>
+                  </select>
+                  <button id="setRoleBtn" class="btn-secondary btn-small" style="margin-top:6px;">
+                    Rolü Kaydet
+                  </button>
+                  <div id="roleError" class="message error" style="display:none;"></div>
+                </div>
+
+                <div id="playersList" style="margin-top:12px;"></div>
+
+                <div class="lobby-actions" style="margin-top:12px;">
+                  <button id="lobbyReadyBtn" class="btn-primary">Hazırım</button>
+                  <button id="startGameBtn" class="btn-secondary" style="display:none;">Oyunu Başlat</button>
+                  <button id="backToMenuBtn" class="btn-ghost">Ana menüye dön</button>
+                </div>
+                <div id="lobbyMessage" class="message info-soft" style="display:none; margin-top:10px;"></div>
+              </div>
+
+              <!-- Sağ tarafta faz / final / sonuç -->
+              <div>
+                <!-- 4) İPUCU FAZLARI -->
+                <div class="section" id="phaseSection" style="display:none;">
+                  <h2 id="phaseTitle">Bölüm</h2>
+                  <div id="phaseContent" class="phase-box"></div>
+                  <button id="phaseReadyBtn" class="btn-primary" style="margin-top:10px;">
+                    Hazırım (Sonraki Aşama)
+                  </button>
+                  <div id="phaseInfo" class="message info-soft" style="display:none;"></div>
+                </div>
+
+                <!-- 5) FİNAL CEVAP -->
+                <div class="section" id="finalSection" style="display:none;">
+                  <h2>Son Aşama: Çözüm</h2>
+                  <div id="finalQuestion" style="margin-bottom:6px;"></div>
+                  <input id="answerInput" placeholder="Cevabınız (ör: garson)" />
+                  <button id="submitAnswerBtn" class="btn-primary" style="margin-top:10px;">
+                    Cevabı Gönder
+                  </button>
+                  <div id="finalInfo" class="message info-soft" style="display:none;"></div>
+                </div>
+
+                <!-- 6) SONUÇ -->
+                <div class="section" id="resultSection" style="display:none;">
+                  <h2>Sonuç</h2>
+                  <div id="resultText"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- HOW TO PLAY / CREDITS OVERLAY -->
+        <div id="overlayBackdrop" class="overlay-backdrop" style="display:none;">
+          <div class="overlay-card" id="howToOverlay" style="display:none;">
+            <h3>How to Play</h3>
+            <p>1. Bir oyuncu oda oluşturur ve oluşan oda kodunu arkadaşına gönderir.</p>
+            <p>2. Diğer oyuncu “Odaya Katıl” deyip oda kodunu yazar.</p>
+            <p>3. Lobide herkes rolünü seçer ve “Hazırım” der.</p>
+            <p>4. Host “Oyunu Başlat” dediğinde ipuçları aşama aşama açılır.</p>
+            <p>5. Son aşamada herkes katilin kim olduğunu yazar; iki oyuncu da doğruysa kazanırsınız.</p>
+            <div class="overlay-footer">
+              <button id="overlayCloseBtn1" class="btn-secondary btn-small">Kapat</button>
             </div>
           </div>
 
-          <!-- 2) BAĞLANTI EKRANI -->
-          <div class="section" id="connectionSection" style="display:none;">
-            <div class="label">İsminiz</div>
-            <input id="nameInput" placeholder="Takma adınız" />
-
-            <div id="roomCodeGroup" style="margin-top:10px; display:none;">
-              <div class="label">Oda Kodu</div>
-              <input id="roomCodeInput" placeholder="Örn: ABCD1" />
+          <div class="overlay-card" id="creditsOverlay" style="display:none;">
+            <h3>Credits</h3>
+            <p>Oyun tasarımı, hikâye ve geliştirme:</p>
+            <p>👤 Sen + yapay zeka asistanın (co-op dev mode)</p>
+            <p>Teknolojiler: Node.js, Express, Socket.IO, Render</p>
+            <div class="overlay-footer">
+              <button id="overlayCloseBtn2" class="btn-secondary btn-small">Kapat</button>
             </div>
-
-            <button id="connectBtn" style="margin-top:10px;">Devam et</button>
-            <button id="backToMenuFromConnectBtn" style="margin-top:10px; background:#444;">Ana menüye dön</button>
-            <div id="joinError" class="message" style="display:none;background:#7f1d1d;"></div>
-          </div>
-
-          <!-- 3) LOBBY -->
-          <div class="section" id="lobbySection" style="display:none;">
-            <h2>Lobby</h2>
-            <div id="roomCodeDisplay" style="margin-bottom:8px; font-size:14px; opacity:0.8;"></div>
-            <div id="myRoleInfo"></div>
-
-            <div style="margin-top:10px;">
-              <div class="label">Rolünü seç</div>
-              <select id="lobbyRoleSelect">
-                <option value="dedektif">Baş Dedektif</option>
-                <option value="polis">Polis</option>
-              </select>
-              <button id="setRoleBtn" style="margin-top:6px;">Rolü Kaydet</button>
-              <div id="roleError" class="message" style="display:none;background:#7f1d1d;"></div>
-            </div>
-
-            <div id="playersList" style="margin-top:12px;"></div>
-
-            <div class="lobby-actions">
-              <button id="lobbyReadyBtn">Hazırım</button>
-              <button id="startGameBtn" style="display:none;">Oyunu Başlat</button>
-              <button id="backToMenuBtn" style="background:#444;">Ana menüye dön</button>
-            </div>
-            <div id="lobbyMessage" class="message" style="display:none;"></div>
-          </div>
-
-          <!-- 4) İPUCU FAZLARI -->
-          <div class="section" id="phaseSection" style="display:none;">
-            <h2 id="phaseTitle">Bölüm</h2>
-            <div id="phaseContent" class="phase-box"></div>
-            <button id="phaseReadyBtn" style="margin-top:10px;">Hazırım (Sonraki Aşama)</button>
-            <div id="phaseInfo" class="message" style="display:none;"></div>
-          </div>
-
-          <!-- 5) FİNAL CEVAP -->
-          <div class="section" id="finalSection" style="display:none;">
-            <h2>Son Aşama: Çözüm</h2>
-            <div id="finalQuestion"></div>
-            <input id="answerInput" placeholder="Cevabınız (ör: garson)" />
-            <button id="submitAnswerBtn" style="margin-top:10px;">Cevabı Gönder</button>
-            <div id="finalInfo" class="message" style="display:none;"></div>
-          </div>
-
-          <!-- 6) SONUÇ -->
-          <div class="section" id="resultSection" style="display:none;">
-            <h2>Sonuç</h2>
-            <div id="resultText"></div>
           </div>
         </div>
 
@@ -274,6 +566,17 @@ app.get("/", (req, res) => {
           const menuSection = document.getElementById("menuSection");
           const hostBtn = document.getElementById("hostBtn");
           const joinMenuBtn = document.getElementById("joinMenuBtn");
+          const settingsBtn = document.getElementById("settingsBtn");
+          const settingsPanel = document.getElementById("settingsPanel");
+          const howToBtn = document.getElementById("howToBtn");
+          const creditsBtn = document.getElementById("creditsBtn");
+
+          // Overlay
+          const overlayBackdrop = document.getElementById("overlayBackdrop");
+          const howToOverlay = document.getElementById("howToOverlay");
+          const creditsOverlay = document.getElementById("creditsOverlay");
+          const overlayCloseBtn1 = document.getElementById("overlayCloseBtn1");
+          const overlayCloseBtn2 = document.getElementById("overlayCloseBtn2");
 
           // Bağlantı ekranı
           const connectionSection = document.getElementById("connectionSection");
@@ -352,10 +655,11 @@ app.get("/", (req, res) => {
             resultText.textContent = "";
             finalInfo.style.display = "none";
             finalInfo.textContent = "";
-            phaseInfo.style.display = "none";
-            phaseInfo.textContent = "";
             roleError.style.display = "none";
             roleError.textContent = "";
+
+            phaseInfo.style.display = "none";
+            phaseInfo.textContent = "";
 
             phaseReadyBtn.disabled = false;
             submitAnswerBtn.disabled = false;
@@ -374,6 +678,40 @@ app.get("/", (req, res) => {
             lobbyReadyBtn.textContent = "Hazırım";
             startGameBtn.disabled = false;
           }
+
+          // --- Overlay logic ---
+          function openOverlay(which) {
+            overlayBackdrop.style.display = "flex";
+            if (which === "howto") {
+              howToOverlay.style.display = "block";
+              creditsOverlay.style.display = "none";
+            } else if (which === "credits") {
+              howToOverlay.style.display = "none";
+              creditsOverlay.style.display = "block";
+            }
+          }
+          function closeOverlay() {
+            overlayBackdrop.style.display = "none";
+            howToOverlay.style.display = "none";
+            creditsOverlay.style.display = "none";
+          }
+
+          howToBtn.addEventListener("click", () => openOverlay("howto"));
+          creditsBtn.addEventListener("click", () => openOverlay("credits"));
+          overlayCloseBtn1.addEventListener("click", closeOverlay);
+          overlayCloseBtn2.addEventListener("click", closeOverlay);
+          overlayBackdrop.addEventListener("click", (e) => {
+            if (e.target === overlayBackdrop) closeOverlay();
+          });
+
+          // Settings toggle
+          settingsBtn.addEventListener("click", () => {
+            if (settingsPanel.style.display === "none") {
+              settingsPanel.style.display = "block";
+            } else {
+              settingsPanel.style.display = "none";
+            }
+          });
 
           // --- Menü butonları ---
           hostBtn.addEventListener("click", () => {
@@ -404,7 +742,7 @@ app.get("/", (req, res) => {
 
             if (!mode) {
               joinError.style.display = "block";
-              joinError.textContent = "Önce menüden bir seçenek seçmelisin.";
+              joinError.textContent = "Önce ana menüden bir seçenek seçmelisin.";
               return;
             }
 
@@ -499,7 +837,7 @@ app.get("/", (req, res) => {
 
             // Host ise "Oyunu Başlat" butonu görünsün
             if (data.isHost) {
-              startGameBtn.style.display = "inline-block";
+              startGameBtn.style.display = "inline-flex";
             } else {
               startGameBtn.style.display = "none";
             }
