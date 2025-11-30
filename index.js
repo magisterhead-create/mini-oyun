@@ -167,7 +167,8 @@ app.get("/", (req, res) => {
             border: 1px solid rgba(148,163,184,0.25);
           }
           .section.main-menu {
-            margin-bottom: 20px;
+            margin: 0 auto 20px;
+            max-width: 420px;
           }
           .screen-title {
             margin: 0 0 4px;
@@ -278,14 +279,24 @@ app.get("/", (req, res) => {
 
           .menu-buttons {
             display: flex;
-            flex-direction: column;
+            flex-direction: column; /* her zaman dikey */
             gap: 10px;
             margin-top: 8px;
           }
-          @media (min-width: 600px) {
-            .menu-buttons {
-              flex-direction: row;
-            }
+
+          .settings-btn {
+            border-radius: 999px;
+            padding-inline: 14px;
+            background: rgba(15,23,42,0.95);
+            border-color: rgba(148,163,184,0.7);
+            color: #e5e7eb;
+            box-shadow: 0 6px 14px rgba(15,23,42,0.9);
+          }
+          .settings-btn:hover {
+            background: rgba(37,99,235,0.18);
+            border-color: rgba(129,140,248,0.9);
+            color: #f9fafb;
+            transform: translateY(-1px);
           }
 
           #playersList {
@@ -401,6 +412,100 @@ app.get("/", (req, res) => {
             display: flex;
             justify-content: flex-end;
           }
+
+          /* Lobby dikey kart */
+          #lobbySection {
+            max-width: 420px;
+            margin: 0 auto;
+          }
+          .lobby-top-strip {
+            padding: 8px 10px 10px;
+            border-radius: 10px;
+            background: rgba(15,23,42,0.95);
+            border: 1px solid rgba(55,65,81,0.8);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 10px;
+          }
+          .lobby-top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+          }
+          .room-code-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+          }
+          .room-code-text {
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.16em;
+          }
+          .lobby-top-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+          }
+          .btn-chip {
+            font-size: 11px;
+            padding: 5px 10px;
+            border-radius: 999px;
+          }
+          .players-box-wrapper {
+            margin-top: 4px;
+          }
+          .players-box-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+          }
+          .players-box {
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: rgba(15,23,42,0.95);
+            border: 1px solid rgba(55,65,81,0.8);
+            min-height: 42px;
+          }
+
+          .lobby-setup {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(55,65,81,0.9);
+          }
+          .lobby-setup-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+          }
+          .setup-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 10px;
+          }
+          .setup-note {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 3px;
+          }
+
+          .lobby-actions {
+            margin-top: 14px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+          .lobby-actions button {
+            flex: 1;
+          }
         </style>
       </head>
       <body>
@@ -424,7 +529,7 @@ app.get("/", (req, res) => {
                 </button>
               </div>
 
-              <button id="settingsBtn" class="btn-ghost btn-small" style="margin-top:14px;">
+              <button id="settingsBtn" class="btn-ghost btn-small settings-btn" style="margin-top:14px;">
                 ⚙️ Settings
               </button>
               <div id="settingsPanel" class="sub-panel" style="display:none;">
@@ -475,24 +580,63 @@ app.get("/", (req, res) => {
                   Rolünü seç, hazır ol ve host oyunu başlatsın.
                 </p>
 
-                <div id="roomCodeDisplay" style="margin-bottom:8px; font-size:13px; color:var(--text-muted);"></div>
-                <div id="myRoleInfo" style="font-size:13px; margin-bottom:8px;"></div>
-
-                <div style="margin-top:6px;">
-                  <div class="label">Rolünü seç</div>
-                  <select id="lobbyRoleSelect" style="margin-top:6px;">
-                    <option value="dedektif">Baş Dedektif</option>
-                    <option value="polis">Polis</option>
-                  </select>
-                  <button id="setRoleBtn" class="btn-secondary btn-small" style="margin-top:6px;">
-                    Rolü Kaydet
-                  </button>
-                  <div id="roleError" class="message error" style="display:none;"></div>
+                <!-- Üst şerit: Room code + davet -->
+                <div class="lobby-top-strip">
+                  <div class="lobby-top-row">
+                    <div>
+                      <div class="room-code-label">Room code</div>
+                      <div id="roomCodeDisplay" class="room-code-text">— — — — —</div>
+                    </div>
+                    <div class="lobby-top-actions">
+                      <button id="copyLinkBtn" class="btn-secondary btn-chip">
+                        Kopyala
+                      </button>
+                      <button id="inviteFriendBtn" class="btn-primary btn-chip">
+                        Invite friend
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                <div id="playersList" style="margin-top:12px;"></div>
+                <!-- Oyuncular -->
+                <div class="players-box-wrapper">
+                  <div class="players-box-title">Players in room</div>
+                  <div class="players-box">
+                    <div id="playersList"></div>
+                  </div>
+                </div>
 
-                <div class="lobby-actions" style="margin-top:12px;">
+                <!-- Kurulum strip: rol + vaka -->
+                <div class="lobby-setup">
+                  <div class="lobby-setup-title">Setup</div>
+                  <div class="setup-grid">
+                    <div>
+                      <div id="myRoleInfo" style="font-size:13px; margin-bottom:6px;"></div>
+                      <div class="label">Rolünü seç</div>
+                      <select id="lobbyRoleSelect" style="margin-top:6px;">
+                        <option value="dedektif">Baş Dedektif</option>
+                        <option value="polis">Polis</option>
+                      </select>
+                      <button id="setRoleBtn" class="btn-secondary btn-small" style="margin-top:6px;">
+                        Rolü Kaydet
+                      </button>
+                      <div id="roleError" class="message error" style="display:none;"></div>
+                    </div>
+
+                    <div>
+                      <div class="label">Vaka seç (yakında)</div>
+                      <button id="selectCaseBtn" class="btn-ghost btn-small" style="margin-top:6px;">
+                        Default Case
+                      </button>
+                      <div class="setup-note">
+                        Şimdilik tek vaka var. İleride farklı hikâyeler buradan seçilecek.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Alt: aksiyonlar -->
+                <div class="lobby-actions">
                   <button id="lobbyReadyBtn" class="btn-primary">Hazırım</button>
                   <button id="startGameBtn" class="btn-secondary" style="display:none;">Oyunu Başlat</button>
                   <button id="backToMenuBtn" class="btn-ghost">Ana menüye dön</button>
@@ -599,6 +743,9 @@ app.get("/", (req, res) => {
           const lobbyRoleSelect = document.getElementById("lobbyRoleSelect");
           const setRoleBtn = document.getElementById("setRoleBtn");
           const roleError = document.getElementById("roleError");
+          const copyLinkBtn = document.getElementById("copyLinkBtn");
+          const inviteFriendBtn = document.getElementById("inviteFriendBtn");
+          const selectCaseBtn = document.getElementById("selectCaseBtn");
 
           // Faz bölümü
           const phaseSection = document.getElementById("phaseSection");
@@ -637,6 +784,11 @@ app.get("/", (req, res) => {
             }
           }
 
+          function showLobbyInfo(msg) {
+            lobbyMessage.style.display = "block";
+            lobbyMessage.textContent = msg;
+          }
+
           function resetUIToMenu() {
             menuSection.style.display = "block";
             connectionSection.style.display = "none";
@@ -650,7 +802,7 @@ app.get("/", (req, res) => {
             lobbyMessage.style.display = "none";
             lobbyMessage.textContent = "";
             playersList.innerHTML = "";
-            roomCodeDisplay.textContent = "";
+            roomCodeDisplay.textContent = "— — — — —";
             myRoleInfo.textContent = "";
             resultText.textContent = "";
             finalInfo.style.display = "none";
@@ -778,6 +930,11 @@ app.get("/", (req, res) => {
             socket.emit("chooseRole", { role: newRole });
           });
 
+          // Vaka seçimi (şimdilik placeholder)
+          selectCaseBtn.addEventListener("click", () => {
+            showLobbyInfo("Şimdilik tek bir vaka mevcut. Yeni vakalar yakında eklenecek.");
+          });
+
           // Oyunu başlat (sadece host)
           startGameBtn.addEventListener("click", () => {
             socket.emit("startGame");
@@ -822,7 +979,7 @@ app.get("/", (req, res) => {
 
           socket.on("roomCreated", ({ roomCode }) => {
             myRoomCode = roomCode;
-            roomCodeDisplay.textContent = "Oda Kodu: " + roomCode + " (Bu kodu arkadaşınla paylaş)";
+            roomCodeDisplay.textContent = roomCode;
           });
 
           socket.on("joinSuccess", (data) => {
@@ -832,7 +989,7 @@ app.get("/", (req, res) => {
             myRole = data.role || null;
             updateMyRoleInfo();
             if (myRoomCode) {
-              roomCodeDisplay.textContent = "Oda Kodu: " + myRoomCode;
+              roomCodeDisplay.textContent = myRoomCode;
             }
 
             // Host ise "Oyunu Başlat" butonu görünsün
@@ -891,13 +1048,11 @@ app.get("/", (req, res) => {
           });
 
           socket.on("lobbyMessage", (msg) => {
-            lobbyMessage.style.display = "block";
-            lobbyMessage.textContent = msg;
+            showLobbyInfo(msg);
           });
 
           socket.on("gameStarting", () => {
-            lobbyMessage.style.display = "block";
-            lobbyMessage.textContent = "Oyun 3 saniye içinde başlıyor...";
+            showLobbyInfo("Oyun 3 saniye içinde başlıyor...");
           });
 
           socket.on("phaseData", (data) => {
@@ -937,6 +1092,45 @@ app.get("/", (req, res) => {
               submitAnswerBtn.disabled = false;
               answerInput.disabled = false;
               finalSection.style.display = "block";
+            }
+          });
+
+          // Copy link & invite friend
+          function buildRoomLink() {
+            if (!myRoomCode) return window.location.origin;
+            return window.location.origin + "?room=" + myRoomCode;
+          }
+
+          copyLinkBtn.addEventListener("click", () => {
+            const link = buildRoomLink();
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(link).then(
+                () => showLobbyInfo("Oda linki panoya kopyalandı."),
+                () => showLobbyInfo("Link kopyalanamadı, elle kopyalamayı deneyin: " + link)
+              );
+            } else {
+              showLobbyInfo("Tarayıcı kopyalama desteği yok. Link: " + link);
+            }
+          });
+
+          inviteFriendBtn.addEventListener("click", () => {
+            const link = buildRoomLink();
+            const text = "Baş Dedektif & Polis oyununda odama katıl! Oda kodu: " + (myRoomCode || "—") + " · Link: " + link;
+            if (navigator.share) {
+              navigator.share({
+                title: "Baş Dedektif & Polis",
+                text,
+                url: link
+              }).catch(() => {});
+            } else {
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(
+                  () => showLobbyInfo("Davet metni panoya kopyalandı, istediğin yere yapıştırabilirsin."),
+                  () => showLobbyInfo("Paylaşım desteklenmiyor. Metin: " + text)
+                );
+              } else {
+                showLobbyInfo("Paylaşım desteklenmiyor. Metin: " + text);
+              }
             }
           });
         </script>
