@@ -170,6 +170,14 @@ app.get("/", (req, res) => {
             margin: 0 auto 20px;
             max-width: 420px;
           }
+          #menuSection .screen-title,
+          #menuSection .screen-subtitle {
+            text-align: center;
+          }
+          #lobbySection .screen-title,
+          #lobbySection .screen-subtitle {
+            text-align: center;
+          }
           .screen-title {
             margin: 0 0 4px;
             font-size: 18px;
@@ -413,6 +421,54 @@ app.get("/", (req, res) => {
             justify-content: flex-end;
           }
 
+          /* Rol seçimi kartları */
+          .role-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+          }
+          @media (max-width: 480px) {
+            .role-grid {
+              grid-template-columns: minmax(0, 1fr);
+            }
+          }
+          .role-card {
+            padding: 10px 10px 9px;
+            border-radius: 12px;
+            background: rgba(15,23,42,0.95);
+            border: 1px solid rgba(55,65,81,0.9);
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.15s ease;
+          }
+          .role-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 10px 20px rgba(37,99,235,0.45);
+            transform: translateY(-2px);
+          }
+          .role-avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 12px;
+            margin: 0 auto 6px;
+          }
+          .role-avatar-dedektif {
+            background: linear-gradient(135deg, #1e3a8a, #6366f1);
+          }
+          .role-avatar-polis {
+            background: linear-gradient(135deg, #0f766e, #22c55e);
+          }
+          .role-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 2px;
+          }
+          .role-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+          }
+
           /* Lobby dikey kart */
           #lobbySection {
             max-width: 420px;
@@ -611,14 +667,10 @@ app.get("/", (req, res) => {
                   <div class="lobby-setup-title">Setup</div>
                   <div class="setup-grid">
                     <div>
-                      <div id="myRoleInfo" style="font-size:13px; margin-bottom:6px;"></div>
-                      <div class="label">Rolünü seç</div>
-                      <select id="lobbyRoleSelect" style="margin-top:6px;">
-                        <option value="dedektif">Baş Dedektif</option>
-                        <option value="polis">Polis</option>
-                      </select>
-                      <button id="setRoleBtn" class="btn-secondary btn-small" style="margin-top:6px;">
-                        Rolü Kaydet
+                      <div class="label">Aktif rolün</div>
+                      <div id="myRoleInfo" style="font-size:13px; margin-top:4px;"></div>
+                      <button id="openRoleSelectBtn" class="btn-secondary btn-small" style="margin-top:8px;">
+                        Rol Seç
                       </button>
                       <div id="roleError" class="message error" style="display:none;"></div>
                     </div>
@@ -677,7 +729,7 @@ app.get("/", (req, res) => {
           </div>
         </div>
 
-        <!-- HOW TO PLAY / CREDITS OVERLAY -->
+        <!-- HOW TO PLAY / CREDITS / ROLE SELECT OVERLAY -->
         <div id="overlayBackdrop" class="overlay-backdrop" style="display:none;">
           <div class="overlay-card" id="howToOverlay" style="display:none;">
             <h3>How to Play</h3>
@@ -700,6 +752,26 @@ app.get("/", (req, res) => {
               <button id="overlayCloseBtn2" class="btn-secondary btn-small">Kapat</button>
             </div>
           </div>
+
+          <div class="overlay-card" id="roleSelectOverlay" style="display:none;">
+            <h3>Rol Seç</h3>
+            <p>Karakterini seç; her rol oyuna farklı bir enerji katar.</p>
+            <div class="role-grid">
+              <div class="role-card" data-role="dedektif">
+                <div class="role-avatar role-avatar-dedektif"></div>
+                <div class="role-name">Baş Dedektif</div>
+                <div class="role-desc">İpuçlarını birleştirip resmi tamamlayan zihin.</div>
+              </div>
+              <div class="role-card" data-role="polis">
+                <div class="role-avatar role-avatar-polis"></div>
+                <div class="role-name">Polis</div>
+                <div class="role-desc">Sahadaki göz, kulak ve refleks.</div>
+              </div>
+            </div>
+            <div class="overlay-footer">
+              <button id="roleOverlayCloseBtn" class="btn-secondary btn-small">İptal</button>
+            </div>
+          </div>
         </div>
 
         <script src="/socket.io/socket.io.js"></script>
@@ -719,8 +791,10 @@ app.get("/", (req, res) => {
           const overlayBackdrop = document.getElementById("overlayBackdrop");
           const howToOverlay = document.getElementById("howToOverlay");
           const creditsOverlay = document.getElementById("creditsOverlay");
+          const roleSelectOverlay = document.getElementById("roleSelectOverlay");
           const overlayCloseBtn1 = document.getElementById("overlayCloseBtn1");
           const overlayCloseBtn2 = document.getElementById("overlayCloseBtn2");
+          const roleOverlayCloseBtn = document.getElementById("roleOverlayCloseBtn");
 
           // Bağlantı ekranı
           const connectionSection = document.getElementById("connectionSection");
@@ -740,12 +814,11 @@ app.get("/", (req, res) => {
           const lobbyReadyBtn = document.getElementById("lobbyReadyBtn");
           const startGameBtn = document.getElementById("startGameBtn");
           const backToMenuBtn = document.getElementById("backToMenuBtn");
-          const lobbyRoleSelect = document.getElementById("lobbyRoleSelect");
-          const setRoleBtn = document.getElementById("setRoleBtn");
           const roleError = document.getElementById("roleError");
           const copyLinkBtn = document.getElementById("copyLinkBtn");
           const inviteFriendBtn = document.getElementById("inviteFriendBtn");
           const selectCaseBtn = document.getElementById("selectCaseBtn");
+          const openRoleSelectBtn = document.getElementById("openRoleSelectBtn");
 
           // Faz bölümü
           const phaseSection = document.getElementById("phaseSection");
@@ -773,15 +846,15 @@ app.get("/", (req, res) => {
           let myLobbyReady = false;
 
           function updateMyRoleInfo() {
+            let text;
             if (myRole === "dedektif") {
-              myRoleInfo.textContent = "Rolün: Baş Dedektif";
-              lobbyRoleSelect.value = "dedektif";
+              text = "Rolün: Baş Dedektif";
             } else if (myRole === "polis") {
-              myRoleInfo.textContent = "Rolün: Polis";
-              lobbyRoleSelect.value = "polis";
+              text = "Rolün: Polis";
             } else {
-              myRoleInfo.textContent = "Rolün: (henüz seçilmedi)";
+              text = "Rolün: (henüz seçilmedi)";
             }
+            myRoleInfo.textContent = text;
           }
 
           function showLobbyInfo(msg) {
@@ -834,24 +907,30 @@ app.get("/", (req, res) => {
           // --- Overlay logic ---
           function openOverlay(which) {
             overlayBackdrop.style.display = "flex";
+            howToOverlay.style.display = "none";
+            creditsOverlay.style.display = "none";
+            roleSelectOverlay.style.display = "none";
+
             if (which === "howto") {
               howToOverlay.style.display = "block";
-              creditsOverlay.style.display = "none";
             } else if (which === "credits") {
-              howToOverlay.style.display = "none";
               creditsOverlay.style.display = "block";
+            } else if (which === "roles") {
+              roleSelectOverlay.style.display = "block";
             }
           }
           function closeOverlay() {
             overlayBackdrop.style.display = "none";
             howToOverlay.style.display = "none";
             creditsOverlay.style.display = "none";
+            roleSelectOverlay.style.display = "none";
           }
 
           howToBtn.addEventListener("click", () => openOverlay("howto"));
           creditsBtn.addEventListener("click", () => openOverlay("credits"));
           overlayCloseBtn1.addEventListener("click", closeOverlay);
           overlayCloseBtn2.addEventListener("click", closeOverlay);
+          roleOverlayCloseBtn.addEventListener("click", closeOverlay);
           overlayBackdrop.addEventListener("click", (e) => {
             if (e.target === overlayBackdrop) closeOverlay();
           });
@@ -922,12 +1001,22 @@ app.get("/", (req, res) => {
             socket.emit("lobbyReadyToggle", { ready: newReady });
           });
 
-          // Rol seçimi
-          setRoleBtn.addEventListener("click", () => {
-            const newRole = lobbyRoleSelect.value;
+          // Rol seç ekranını aç
+          openRoleSelectBtn.addEventListener("click", () => {
             roleError.style.display = "none";
             roleError.textContent = "";
-            socket.emit("chooseRole", { role: newRole });
+            openOverlay("roles");
+          });
+
+          // Rol kartlarına tıklama
+          document.querySelectorAll(".role-card").forEach((card) => {
+            card.addEventListener("click", () => {
+              const role = card.getAttribute("data-role");
+              roleError.style.display = "none";
+              roleError.textContent = "";
+              socket.emit("chooseRole", { role });
+              closeOverlay();
+            });
           });
 
           // Vaka seçimi (şimdilik placeholder)
