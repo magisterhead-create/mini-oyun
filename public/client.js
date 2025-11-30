@@ -67,6 +67,8 @@ let currentPhase = 0;
 let mode = null; // "host" veya "join"
 let myLobbyReady = false;
 
+// --- Yardımcı fonksiyonlar ---
+
 function updateMyRoleInfo() {
   let text;
   if (myRole === "dedektif") {
@@ -127,6 +129,7 @@ function resetUIToMenu() {
 }
 
 // --- Overlay logic ---
+
 function openOverlay(which) {
   overlayBackdrop.style.display = "flex";
   howToOverlay.style.display = "none";
@@ -141,6 +144,7 @@ function openOverlay(which) {
     roleSelectOverlay.style.display = "block";
   }
 }
+
 function closeOverlay() {
   overlayBackdrop.style.display = "none";
   howToOverlay.style.display = "none";
@@ -148,17 +152,25 @@ function closeOverlay() {
   roleSelectOverlay.style.display = "none";
 }
 
-howToBtn.addEventListener("click", () => openOverlay("howto"));
-creditsBtn.addEventListener("click", () => openOverlay("credits"));
+// Overlay butonları
+howToBtn.addEventListener("click", function () {
+  openOverlay("howto");
+});
+
+creditsBtn.addEventListener("click", function () {
+  openOverlay("credits");
+});
+
 overlayCloseBtn1.addEventListener("click", closeOverlay);
 overlayCloseBtn2.addEventListener("click", closeOverlay);
 roleOverlayCloseBtn.addEventListener("click", closeOverlay);
-overlayBackdrop.addEventListener("click", (e) => {
+
+overlayBackdrop.addEventListener("click", function (e) {
   if (e.target === overlayBackdrop) closeOverlay();
 });
 
 // Settings toggle
-settingsBtn.addEventListener("click", () => {
+settingsBtn.addEventListener("click", function () {
   if (settingsPanel.style.display === "none") {
     settingsPanel.style.display = "block";
   } else {
@@ -167,28 +179,29 @@ settingsBtn.addEventListener("click", () => {
 });
 
 // --- Menü butonları ---
-hostBtn.addEventListener("click", () => {
+
+hostBtn.addEventListener("click", function () {
   mode = "host";
   menuSection.style.display = "none";
   connectionSection.style.display = "block";
   roomCodeGroup.style.display = "none"; // host iken oda kodu girmeye gerek yok
 });
 
-joinMenuBtn.addEventListener("click", () => {
+joinMenuBtn.addEventListener("click", function () {
   mode = "join";
   menuSection.style.display = "none";
   connectionSection.style.display = "block";
   roomCodeGroup.style.display = "block"; // join iken oda kodu gerekli
 });
 
-backToMenuFromConnectBtn.addEventListener("click", () => {
+backToMenuFromConnectBtn.addEventListener("click", function () {
   resetUIToMenu();
 });
 
 // Bağlan / Devam et
-connectBtn.addEventListener("click", () => {
-  const name = nameInput.value.trim();
-  const roomCode = roomCodeInput.value.trim().toUpperCase();
+connectBtn.addEventListener("click", function () {
+  var name = nameInput.value.trim();
+  var roomCode = roomCodeInput.value.trim().toUpperCase();
 
   joinError.style.display = "none";
   joinError.textContent = "";
@@ -206,59 +219,60 @@ connectBtn.addEventListener("click", () => {
   }
 
   if (mode === "host") {
-    socket.emit("createRoom", { name });
+    socket.emit("createRoom", { name: name });
   } else {
     if (!roomCode) {
       joinError.style.display = "block";
       joinError.textContent = "Odaya katılmak için oda kodu girmelisin.";
       return;
     }
-    socket.emit("joinRoom", { name, roomCode });
+    socket.emit("joinRoom", { name: name, roomCode: roomCode });
   }
 });
 
 // Lobby hazırım (toggle)
-lobbyReadyBtn.addEventListener("click", () => {
-  const newReady = !myLobbyReady;
+lobbyReadyBtn.addEventListener("click", function () {
+  var newReady = !myLobbyReady;
   socket.emit("lobbyReadyToggle", { ready: newReady });
 });
 
 // Rol seç ekranını aç
-openRoleSelectBtn.addEventListener("click", () => {
+openRoleSelectBtn.addEventListener("click", function () {
   roleError.style.display = "none";
   roleError.textContent = "";
   openOverlay("roles");
 });
 
 // Rol kartlarına tıklama
-document.querySelectorAll(".role-card").forEach((card) => {
-  card.addEventListener("click", () => {
-    const role = card.getAttribute("data-role");
+var roleCards = document.querySelectorAll(".role-card");
+for (var i = 0; i < roleCards.length; i++) {
+  roleCards[i].addEventListener("click", function () {
+    var role = this.getAttribute("data-role");
     roleError.style.display = "none";
     roleError.textContent = "";
-    socket.emit("chooseRole", { role });
+    socket.emit("chooseRole", { role: role });
     closeOverlay();
   });
-});
+}
 
 // Vaka seçimi (şimdilik placeholder)
-selectCaseBtn.addEventListener("click", () => {
+selectCaseBtn.addEventListener("click", function () {
   showLobbyInfo("Şimdilik tek bir vaka mevcut. Yeni vakalar yakında eklenecek.");
 });
 
 // Oyunu başlat (sadece host)
-startGameBtn.addEventListener("click", () => {
+startGameBtn.addEventListener("click", function () {
   socket.emit("startGame");
 });
 
 // Ana menüye dön (lobiden)
-backToMenuBtn.addEventListener("click", () => {
+backToMenuBtn.addEventListener("click", function () {
   socket.emit("leaveRoom");
   resetUIToMenu();
 });
 
 // Faz hazır
-phaseReadyBtn.addEventListener("click", () => {
+phaseReadyBtn.addEventListener("click", function () {
   if (currentPhase >= 1 && currentPhase <= 3) {
     socket.emit("phaseReady", { phase: currentPhase });
     phaseReadyBtn.disabled = true;
@@ -268,8 +282,8 @@ phaseReadyBtn.addEventListener("click", () => {
 });
 
 // Cevap gönder
-submitAnswerBtn.addEventListener("click", () => {
-  const ans = answerInput.value.trim();
+submitAnswerBtn.addEventListener("click", function () {
+  var ans = answerInput.value.trim();
   if (!ans) {
     finalInfo.style.display = "block";
     finalInfo.textContent = "Önce bir cevap yazmalısın.";
@@ -282,18 +296,18 @@ submitAnswerBtn.addEventListener("click", () => {
   answerInput.disabled = true;
 });
 
-// Sunucudan gelenler
+// --- Sunucudan gelenler ---
 
-socket.on("welcome", (data) => {
+socket.on("welcome", function (data) {
   myId = data.id;
 });
 
-socket.on("roomCreated", ({ roomCode }) => {
-  myRoomCode = roomCode;
-  roomCodeDisplay.textContent = roomCode;
+socket.on("roomCreated", function (payload) {
+  myRoomCode = payload.roomCode;
+  roomCodeDisplay.textContent = myRoomCode;
 });
 
-socket.on("joinSuccess", (data) => {
+socket.on("joinSuccess", function (data) {
   connectionSection.style.display = "none";
   lobbySection.style.display = "block";
   myRoomCode = data.roomCode || myRoomCode;
@@ -311,19 +325,26 @@ socket.on("joinSuccess", (data) => {
   }
 });
 
-socket.on("joinError", (msg) => {
+socket.on("joinError", function (msg) {
   joinError.style.display = "block";
   joinError.textContent = msg;
 });
 
-socket.on("roleError", (msg) => {
+socket.on("roleError", function (msg) {
   roleError.style.display = "block";
   roleError.textContent = msg;
 });
 
-socket.on("playersUpdate", (data) => {
+socket.on("playersUpdate", function (data) {
   // Kendi rol ve hazır durumumu güncelle
-  const me = data.players.find((p) => p.id === myId);
+  var me = null;
+  for (var i = 0; i < data.players.length; i++) {
+    if (data.players[i].id === myId) {
+      me = data.players[i];
+      break;
+    }
+  }
+
   if (me) {
     myRole = me.role || null;
     myLobbyReady = !!me.lobbyReady;
@@ -331,47 +352,48 @@ socket.on("playersUpdate", (data) => {
     updateMyRoleInfo();
   }
 
-  const list = data.players
-    .map((p) => {
-      let roleLabel;
-      if (p.role === "dedektif") roleLabel = "Baş Dedektif";
-      else if (p.role === "polis") roleLabel = "Polis";
-      else roleLabel = "Rol seçilmedi";
+  var listHtml = "";
+  for (var j = 0; j < data.players.length; j++) {
+    var p = data.players[j];
 
-      let readyHtml = "";
-      if (currentPhase === 0) {
-        // Lobby hazır durumu
-        readyHtml = p.lobbyReady
-          ? '<span class="tag ready">Hazır</span>'
-          : '<span class="tag">Hazır değil</span>';
-      } else {
-        // Faz hazır durumu
-        readyHtml = p.readyPhase > 0
-          ? '<span class="tag ready">Hazır</span>'
-          : '<span class="tag">Hazır değil</span>';
-      }
+    var roleLabel;
+    if (p.role === "dedektif") roleLabel = "Baş Dedektif";
+    else if (p.role === "polis") roleLabel = "Polis";
+    else roleLabel = "Rol seçilmedi";
 
-      return \`\${p.name} (\${roleLabel}) \${readyHtml}\`;
-    })
-    .join("<br/>");
+    var readyHtml = "";
+    if (currentPhase === 0) {
+      // Lobby hazır durumu
+      readyHtml = p.lobbyReady
+        ? '<span class="tag ready">Hazır</span>'
+        : '<span class="tag">Hazır değil</span>';
+    } else {
+      // Faz hazır durumu
+      readyHtml = p.readyPhase > 0
+        ? '<span class="tag ready">Hazır</span>'
+        : '<span class="tag">Hazır değil</span>';
+    }
 
-  playersList.innerHTML = list || "Henüz kimse yok.";
+    listHtml +=
+      p.name + " (" + roleLabel + ") " + readyHtml + "<br/>";
+  }
+
+  playersList.innerHTML = listHtml || "Henüz kimse yok.";
 });
 
-socket.on("lobbyMessage", (msg) => {
+socket.on("lobbyMessage", function (msg) {
   showLobbyInfo(msg);
 });
 
-socket.on("gameStarting", () => {
+socket.on("gameStarting", function () {
   showLobbyInfo("Oyun 3 saniye içinde başlıyor...");
 });
 
-socket.on("phaseData", (data) => {
+socket.on("phaseData", function (data) {
   currentPhase = data.phase;
   phaseInfo.style.display = "none";
   phaseReadyBtn.disabled = false;
 
-  // Lobby açık kalıyor (sağda oyuncuları görmeye devam edersin)
   if (data.phase >= 1 && data.phase <= 3) {
     finalSection.style.display = "none";
     resultSection.style.display = "none";
@@ -392,12 +414,13 @@ socket.on("phaseData", (data) => {
   }
 });
 
-socket.on("finalResult", (data) => {
+socket.on("finalResult", function (data) {
   resultSection.style.display = "block";
   finalSection.style.display = "none";
 
   if (data.success) {
-    resultText.textContent = "TEBRİKLER! Doğru cevabı buldunuz: " + data.correctAnswer.toUpperCase();
+    resultText.textContent =
+      "TEBRİKLER! Doğru cevabı buldunuz: " + data.correctAnswer.toUpperCase();
   } else {
     resultText.textContent = "Cevaplar yanlış. Tekrar deneyebilirsiniz.";
     submitAnswerBtn.disabled = false;
@@ -406,38 +429,56 @@ socket.on("finalResult", (data) => {
   }
 });
 
-// Copy link & invite friend
+// --- Paylaşım / link oluşturma ---
+
 function buildRoomLink() {
   if (!myRoomCode) return window.location.origin;
   return window.location.origin + "?room=" + myRoomCode;
 }
 
-copyLinkBtn.addEventListener("click", () => {
-  const link = buildRoomLink();
+copyLinkBtn.addEventListener("click", function () {
+  var link = buildRoomLink();
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(link).then(
-      () => showLobbyInfo("Oda linki panoya kopyalandı."),
-      () => showLobbyInfo("Link kopyalanamadı, elle kopyalamayı deneyin: " + link)
+      function () {
+        showLobbyInfo("Oda linki panoya kopyalandı.");
+      },
+      function () {
+        showLobbyInfo("Link kopyalanamadı, elle kopyalamayı deneyin: " + link);
+      }
     );
   } else {
     showLobbyInfo("Tarayıcı kopyalama desteği yok. Link: " + link);
   }
 });
 
-inviteFriendBtn.addEventListener("click", () => {
-  const link = buildRoomLink();
-  const text = "Baş Dedektif & Polis oyununda odama katıl! Oda kodu: " + (myRoomCode || "—") + " · Link: " + link;
+inviteFriendBtn.addEventListener("click", function () {
+  var link = buildRoomLink();
+  var text =
+    "Baş Dedektif & Polis oyununda odama katıl! Oda kodu: " +
+    (myRoomCode || "—") +
+    " · Link: " +
+    link;
+
   if (navigator.share) {
-    navigator.share({
-      title: "Baş Dedektif & Polis",
-      text,
-      url: link
-    }).catch(() => {});
+    navigator
+      .share({
+        title: "Baş Dedektif & Polis",
+        text: text,
+        url: link
+      })
+      .catch(function () {});
   } else {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(
-        () => showLobbyInfo("Davet metni panoya kopyalandı, istediğin yere yapıştırabilirsin."),
-        () => showLobbyInfo("Paylaşım desteklenmiyor. Metin: " + text)
+        function () {
+          showLobbyInfo(
+            "Davet metni panoya kopyalandı, istediğin yere yapıştırabilirsin."
+          );
+        },
+        function () {
+          showLobbyInfo("Paylaşım desteklenmiyor. Metin: " + text);
+        }
       );
     } else {
       showLobbyInfo("Paylaşım desteklenmiyor. Metin: " + text);
