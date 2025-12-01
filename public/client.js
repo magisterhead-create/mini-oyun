@@ -32,12 +32,12 @@ const connectBtn = document.getElementById("connectBtn");
 const backToMenuFromConnectBtn = document.getElementById("backToMenuFromConnectBtn");
 const joinError = document.getElementById("joinError");
 
-// Host ekstra alanları (oda ismi + şifre) – HTML’de ekleyeceğiz
+// Host ekstra alanları
 const hostExtraGroup = document.getElementById("hostExtraGroup");
 const roomNameInput = document.getElementById("roomNameInput");
 const roomPasswordInput = document.getElementById("roomPasswordInput");
 
-// Oda listesi (community server list)
+// Oda listesi
 const roomListPanel = document.getElementById("roomListPanel");
 const roomListContainer = document.getElementById("roomListContainer");
 const refreshRoomsBtn = document.getElementById("refreshRoomsBtn");
@@ -75,6 +75,11 @@ const finalInfo = document.getElementById("finalInfo");
 // Sonuç
 const resultSection = document.getElementById("resultSection");
 const resultText = document.getElementById("resultText");
+
+// Lobby chat
+const chatMessages = document.getElementById("chatMessages");
+const chatInput = document.getElementById("chatInput");
+const chatSendBtn = document.getElementById("chatSendBtn");
 
 let myId = null;
 let myRole = null;
@@ -139,6 +144,56 @@ function requestRoomList() {
   socket.emit("getRoomList");
 }
 
+function addChatMessage(data) {
+  if (!chatMessages) return;
+  const line = document.createElement("div");
+  line.className = "chat-message-line";
+
+  // Sistem mesajı ise daha küçük ve farklı renk
+  if (data.isSystem) {
+    line.classList.add("chat-message-system");
+    const textSpan = document.createElement("span");
+    textSpan.className = "chat-message-system-text";
+    textSpan.textContent = data.text;
+
+    line.appendChild(textSpan);
+
+    if (data.time) {
+      const t = new Date(data.time);
+      const hh = String(t.getHours()).padStart(2, "0");
+      const mm = String(t.getMinutes()).padStart(2, "0");
+      const timeSpan = document.createElement("span");
+      timeSpan.className = "chat-message-time";
+      timeSpan.textContent = " [" + hh + ":" + mm + "]";
+      line.appendChild(timeSpan);
+    }
+  } else {
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "chat-message-name";
+    nameSpan.textContent = data.from + ":";
+
+    const textSpan = document.createElement("span");
+    textSpan.className = "chat-message-text";
+    textSpan.textContent = " " + data.text;
+
+    line.appendChild(nameSpan);
+    line.appendChild(textSpan);
+
+    if (data.time) {
+      const t = new Date(data.time);
+      const hh = String(t.getHours()).padStart(2, "0");
+      const mm = String(t.getMinutes()).padStart(2, "0");
+      const timeSpan = document.createElement("span");
+      timeSpan.className = "chat-message-time";
+      timeSpan.textContent = " [" + hh + ":" + mm + "]";
+      line.appendChild(timeSpan);
+    }
+  }
+
+  chatMessages.appendChild(line);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
 function resetUIToMenu() {
   menuSection.style.display = "block";
   connectionSection.style.display = "none";
@@ -172,6 +227,9 @@ function resetUIToMenu() {
 
   if (roomNameInput) roomNameInput.value = "";
   if (roomPasswordInput) roomPasswordInput.value = "";
+
+  if (chatMessages) chatMessages.innerHTML = "";
+  if (chatInput) chatInput.value = "";
 
   myRoomCode = null;
   myRole = null;
@@ -257,7 +315,7 @@ hostBtn.addEventListener("click", function () {
   connectionSection.style.display = "block";
   roomCodeGroup.style.display = "none"; // host iken oda kodu girmeye gerek yok
   if (hostExtraGroup) hostExtraGroup.style.display = "block";
-  if (roomListPanel) roomListPanel.style.display = "none"; // host modunda oda listesi gerekmeyebilir
+  if (roomListPanel) roomListPanel.style.display = "none";
   stopPingLoop();
 });
 
@@ -312,8 +370,6 @@ connectBtn.addEventListener("click", function () {
       joinError.textContent = "Odaya katılmak için oda kodu girmelisin.";
       return;
     }
-    // Burada şifre alanı kullanmıyoruz, manuel koda girerse
-    // şifreli odaysa server hata dönecek; sonra prompt ile tekrar deneyebiliriz.
     socket.emit("joinRoom", { name: name, roomCode: roomCode });
   }
 });
@@ -343,12 +399,11 @@ for (var i = 0; i < roleCards.length; i++) {
   });
 }
 
-// CASE kartları (şimdilik tek kart ama yapı hazır)
+// CASE kartları
 var caseCards = document.querySelectorAll(".case-card");
 for (var i2 = 0; i2 < caseCards.length; i2++) {
   caseCards[i2].addEventListener("click", function () {
     selectedCaseId = this.getAttribute("data-case-id");
-    // istersen burada seçili class'ı vs. da ayarlayabiliriz
   });
 }
 
@@ -404,6 +459,30 @@ submitAnswerBtn.addEventListener("click", function () {
   submitAnswerBtn.disabled = true;
   answerInput.disabled = true;
 });
+
+// Chat gönder
+function sendChatMessage() {
+  if (!chatInput) return;
+  var text = chatInput.value.trim();
+  if (!text) return;
+  socket.emit("sendChat", { message: text });
+  chatInput.value = "";
+}
+
+if (chatSendBtn) {
+  chatSendBtn.addEventListener("click", function () {
+    sendChatMessage();
+  });
+}
+
+if (chatInput) {
+  chatInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendChatMessage();
+    }
+  });
+}
 
 // --- Room list & ping UI ---
 
@@ -515,6 +594,13 @@ socket.on("playersUpdate", function (data) {
 
 socket.on("lobbyMessage", function (msg) {
   showLobbyInfo(msg);
+  // Dilersen burada da sistem chat'e düşürebilirsin:
+  addChatMessage({
+    from: "Sistem",
+    text: msg,
+    time: Date.now(),
+    isSystem: true
+  });
 });
 
 socket.on("gameStarting", function () {
@@ -525,6 +611,8 @@ socket.on("caseSelected", function (data) {
   // seçilen vakayı lobide göster
   showLobbyInfo("Seçilen vaka: " + data.title);
   selectCaseBtn.textContent = "Vaka: " + data.title;
+  // Sistem chat'te de olsun (sunucu zaten chatMessage atıyor ama
+  // istersen buradaki satırı silebilirsin, ben şimdilik ikilemedim)
 });
 
 socket.on("phaseData", function (data) {
@@ -626,6 +714,11 @@ socket.on("pongCheck", function (data) {
   var rtt = Date.now() - data.sentAt;
   lastPingMs = rtt;
   updatePingLabel(rtt);
+});
+
+// Chat mesajı
+socket.on("chatMessage", function (data) {
+  addChatMessage(data);
 });
 
 // --- Paylaşım / link oluşturma ---
