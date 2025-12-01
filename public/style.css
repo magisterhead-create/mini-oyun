@@ -517,3 +517,67 @@ button:disabled {
 .lobby-actions button {
   flex: 1;
 }
+
+/* CASE kartları */
+.case-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.case-card {
+  padding: 10px 10px 9px;
+  border-radius: 12px;
+  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(55,65,81,0.9);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.case-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 10px 20px rgba(37,99,235,0.45);
+  transform: translateY(-2px);
+}
+
+.case-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.case-victim-photo {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4b5563, #9ca3af); /* placeholder */
+}
+
+.case-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.case-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.case-brief {
+  font-size: 12px;
+  color: var(--text-main);
+  margin-bottom: 6px;
+}
+
+.case-suspects {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.case-suspects ul {
+  margin: 4px 0 0 18px;
+  padding: 0;
+}
