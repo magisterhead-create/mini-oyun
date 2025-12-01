@@ -49,7 +49,14 @@ const DEFAULT_CASE_ID = "restaurant_murder";
 // ODA BAZLI OYUN YAPISI
 const MAX_PLAYERS = 2;
 
-// rooms: roomCode -> { hostId, players: { socketId: {...} }, currentPhase, puzzle, selectedCaseId }
+// rooms: roomCode -> {
+//   hostId,
+//   players: { socketId: {...} },
+//   currentPhase,
+//   puzzle,
+//   selectedCaseId,
+//   name, isPrivate, password, createdAt
+// }
 const rooms = {};
 
 // Basit normalize fonksiyonu
@@ -116,13 +123,60 @@ function broadcastPhase(roomCode) {
   }
 }
 
+// Oda listesi üret (community server list için)
+function getPublicRoomList() {
+  const list = Object.entries(rooms).map(([code, room]) => {
+    const currentPlayers = Object.keys(room.players).length;
+    return {
+      roomCode: code,
+      name: room.name || "İsimsiz Oda",
+      isPrivate: !!room.isPrivate,
+      currentPlayers,
+      maxPlayers: MAX_PLAYERS,
+      caseTitle: room.puzzle?.title || null,
+      status: room.currentPhase === 0 ? "LOBBY" : "IN_GAME",
+      createdAt: room.createdAt || 0,
+    };
+  });
+
+  // Dolu odaları istersen filtreleyebiliriz (şimdilik herkes görebilsin ama client doluysa katılmayı engeller)
+  // .filter(r => r.currentPlayers < r.maxPlayers);
+
+  // Önce lobbydekiler, sonra eski/yeniler
+  list.sort((a, b) => {
+    if (a.status !== b.status) {
+      return a.status === "LOBBY" ? -1 : 1;
+    }
+    return a.createdAt - b.createdAt;
+  });
+
+  return list;
+}
+
+function broadcastRoomList() {
+  io.emit("roomList", { rooms: getPublicRoomList() });
+}
+
 // Socket.io olayları
 io.on("connection", (socket) => {
   console.log("Bir kullanıcı bağlandı:", socket.id);
   socket.emit("welcome", { id: socket.id });
 
+  // basit ping altyapısı (client burada RTT ölçebilir)
+  socket.on("pingCheck", (payload) => {
+    socket.emit("pongCheck", {
+      sentAt: payload?.sentAt || null,
+      serverNow: Date.now(),
+    });
+  });
+
+  // Oda listesi isteği (join ekranındaki "serverleri yenile" butonu vs. burayı kullanacak)
+  socket.on("getRoomList", () => {
+    socket.emit("roomList", { rooms: getPublicRoomList() });
+  });
+
   // Oda kurma
-  socket.on("createRoom", ({ name }) => {
+  socket.on("createRoom", ({ name, roomName, password }) => {
     const roomCode = generateRoomCode();
 
     rooms[roomCode] = {
@@ -130,6 +184,10 @@ io.on("connection", (socket) => {
       currentPhase: 0,
       selectedCaseId: DEFAULT_CASE_ID,
       puzzle: CASES[DEFAULT_CASE_ID], // varsayılan vaka
+      name: roomName || "İsimsiz Oda",
+      isPrivate: !!password,
+      password: password || null, // basit string, istersen ileride hash yaparsın
+      createdAt: Date.now(),
       players: {},
     };
 
@@ -150,16 +208,28 @@ io.on("connection", (socket) => {
     io.to(roomCode).emit("playersUpdate", {
       players: getPublicPlayers(roomCode),
     });
+
+    broadcastRoomList();
   });
 
   // Odaya katılma
-  socket.on("joinRoom", ({ name, roomCode }) => {
+  socket.on("joinRoom", ({ name, roomCode, password }) => {
     roomCode = (roomCode || "").toUpperCase();
     const room = rooms[roomCode];
 
     if (!room) {
       socket.emit("joinError", "Böyle bir oda bulunamadı.");
       return;
+    }
+
+    // Şifre kontrolü (oda private ise)
+    if (room.isPrivate) {
+      const given = (password || "").trim();
+      const real = (room.password || "").trim();
+      if (!given || given !== real) {
+        socket.emit("joinError", "Bu oda şifreli. Şifre yanlış.");
+        return;
+      }
     }
 
     const playerCount = Object.keys(room.players).length;
@@ -189,6 +259,8 @@ io.on("connection", (socket) => {
       "lobbyMessage",
       "Oyuncular rol seçip 'Hazırım' dedikten sonra host 'Oyunu Başlat' ile oyunu başlatabilir."
     );
+
+    broadcastRoomList();
   });
 
   // Lobby hazır toggle
@@ -252,6 +324,8 @@ io.on("connection", (socket) => {
       caseId: caseId,
       title: CASES[caseId].title,
     });
+
+    broadcastRoomList();
   });
 
   // Host oyunu başlat
@@ -274,6 +348,8 @@ io.on("connection", (socket) => {
 
     room.currentPhase = 1;
     io.to(roomCode).emit("gameStarting");
+    broadcastRoomList(); // status LOBBY -> IN_GAME
+
     setTimeout(() => {
       broadcastPhase(roomCode);
     }, 3000);
@@ -361,6 +437,8 @@ io.on("connection", (socket) => {
         "Bir oyuncu lobiden ayrıldı. Oyun resetlendi."
       );
     }
+
+    broadcastRoomList();
   });
 
   // Bağlantı kopunca
@@ -389,6 +467,8 @@ io.on("connection", (socket) => {
         "Bir oyuncu ayrıldı. Oyun resetlendi."
       );
     }
+
+    broadcastRoomList();
   });
 });
 
