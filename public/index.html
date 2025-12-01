@@ -111,7 +111,7 @@
                 </div>
 
                 <div>
-                  <div class="label">Vaka seç (yakında)</div>
+                  <div class="label">Vaka seç</div>
                   <button id="selectCaseBtn" class="btn-ghost btn-small" style="margin-top:6px;">
                     Default Case
                   </button>
@@ -217,8 +217,53 @@
           <button id="roleOverlayCloseBtn" class="btn-secondary btn-small">İptal</button>
         </div>
       </div>
+
+      <!-- Case Select -->
+      <div class="overlay-card" id="caseSelectOverlay" style="display:none;">
+        <h3>Vaka Seç</h3>
+        <p>Bir dosya seç ve soruşturmayı başlat:</p>
+
+        <div class="case-grid">
+          <!-- Şimdilik tek vaka kartı -->
+          <div class="case-card" data-case-id="restaurant_murder">
+            <div class="case-header">
+              <div class="case-victim-photo"></div>
+              <div>
+                <div class="case-title">Restorandaki Cinayet</div>
+                <div class="case-meta">
+                  Kurban: Mert Yılmaz<br/>
+                  Olay Yeri: Nişantaşı'nda lüks bir restoran<br/>
+                  Saat: 22:30 civarı
+                </div>
+              </div>
+            </div>
+
+            <div class="case-brief">
+              Başarılı bir iş insanı akşam yemeği sırasında restoran masasında ölü bulunur.
+              Garson, iş ortağı ve eski sevgili baş şüpheliler arasında.
+            </div>
+
+            <div class="case-suspects">
+              <div><strong>Şüpheliler:</strong></div>
+              <ul>
+                <li>Restoran Garsonu</li>
+                <li>İş Ortağı</li>
+                <li>Eski Sevgili</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="overlay-footer" style="justify-content: space-between;">
+          <button id="caseOverlayCloseBtn" class="btn-secondary btn-small">İptal</button>
+          <button id="beginInvestigationBtn" class="btn-primary btn-small">
+            Begin Investigation
+          </button>
+        </div>
+      </div>
     </div>
- <script src="/socket.io/socket.io.js"></script>
+
+    <script src="/socket.io/socket.io.js"></script>
     <script src="/client.js"></script>
   </body>
 </html>
