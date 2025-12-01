@@ -32,6 +32,17 @@ const connectBtn = document.getElementById("connectBtn");
 const backToMenuFromConnectBtn = document.getElementById("backToMenuFromConnectBtn");
 const joinError = document.getElementById("joinError");
 
+// Host ekstra alanları (oda ismi + şifre) – HTML’de ekleyeceğiz
+const hostExtraGroup = document.getElementById("hostExtraGroup");
+const roomNameInput = document.getElementById("roomNameInput");
+const roomPasswordInput = document.getElementById("roomPasswordInput");
+
+// Oda listesi (community server list)
+const roomListPanel = document.getElementById("roomListPanel");
+const roomListContainer = document.getElementById("roomListContainer");
+const refreshRoomsBtn = document.getElementById("refreshRoomsBtn");
+const pingLabel = document.getElementById("pingLabel");
+
 // Lobby
 const lobbySection = document.getElementById("lobbySection");
 const myRoleInfo = document.getElementById("myRoleInfo");
@@ -75,6 +86,10 @@ let myLobbyReady = false;
 // seçili case (şimdilik tek vaka)
 let selectedCaseId = "restaurant_murder";
 
+// ping ölçümü
+let lastPingMs = null;
+let pingIntervalId = null;
+
 // --- Yardımcı fonksiyonlar ---
 
 function updateMyRoleInfo() {
@@ -92,6 +107,36 @@ function updateMyRoleInfo() {
 function showLobbyInfo(msg) {
   lobbyMessage.style.display = "block";
   lobbyMessage.textContent = msg;
+}
+
+function updatePingLabel(ms) {
+  if (!pingLabel) return;
+  if (ms == null) {
+    pingLabel.textContent = "-";
+  } else {
+    pingLabel.textContent = ms + " ms";
+  }
+}
+
+function startPingLoop() {
+  if (pingIntervalId) return;
+  const sendPing = () => {
+    socket.emit("pingCheck", { sentAt: Date.now() });
+  };
+  sendPing();
+  pingIntervalId = setInterval(sendPing, 8000);
+}
+
+function stopPingLoop() {
+  if (pingIntervalId) {
+    clearInterval(pingIntervalId);
+    pingIntervalId = null;
+  }
+  updatePingLabel(null);
+}
+
+function requestRoomList() {
+  socket.emit("getRoomList");
 }
 
 function resetUIToMenu() {
@@ -125,6 +170,9 @@ function resetUIToMenu() {
   nameInput.value = "";
   roomCodeInput.value = "";
 
+  if (roomNameInput) roomNameInput.value = "";
+  if (roomPasswordInput) roomPasswordInput.value = "";
+
   myRoomCode = null;
   myRole = null;
   currentPhase = 0;
@@ -138,6 +186,12 @@ function resetUIToMenu() {
   // case butonu varsayılan haline dönsün
   selectCaseBtn.textContent = "Default Case";
   selectedCaseId = "restaurant_murder";
+
+  // join ekranından çıkınca ping ve room list döngülerini kes
+  stopPingLoop();
+  if (roomListContainer) {
+    roomListContainer.innerHTML = "Şu anda açık oda yok.";
+  }
 }
 
 // --- Overlay logic ---
@@ -202,6 +256,9 @@ hostBtn.addEventListener("click", function () {
   menuSection.style.display = "none";
   connectionSection.style.display = "block";
   roomCodeGroup.style.display = "none"; // host iken oda kodu girmeye gerek yok
+  if (hostExtraGroup) hostExtraGroup.style.display = "block";
+  if (roomListPanel) roomListPanel.style.display = "none"; // host modunda oda listesi gerekmeyebilir
+  stopPingLoop();
 });
 
 joinMenuBtn.addEventListener("click", function () {
@@ -209,6 +266,12 @@ joinMenuBtn.addEventListener("click", function () {
   menuSection.style.display = "none";
   connectionSection.style.display = "block";
   roomCodeGroup.style.display = "block"; // join iken oda kodu gerekli
+  if (hostExtraGroup) hostExtraGroup.style.display = "none";
+  if (roomListPanel) roomListPanel.style.display = "block";
+
+  // oda listesi iste + ping loop başlat
+  requestRoomList();
+  startPingLoop();
 });
 
 backToMenuFromConnectBtn.addEventListener("click", function () {
@@ -236,13 +299,21 @@ connectBtn.addEventListener("click", function () {
   }
 
   if (mode === "host") {
-    socket.emit("createRoom", { name: name });
+    var roomName = roomNameInput ? roomNameInput.value.trim() : "";
+    var roomPassword = roomPasswordInput ? roomPasswordInput.value.trim() : "";
+    socket.emit("createRoom", {
+      name: name,
+      roomName: roomName,
+      password: roomPassword
+    });
   } else {
     if (!roomCode) {
       joinError.style.display = "block";
       joinError.textContent = "Odaya katılmak için oda kodu girmelisin.";
       return;
     }
+    // Burada şifre alanı kullanmıyoruz, manuel koda girerse
+    // şifreli odaysa server hata dönecek; sonra prompt ile tekrar deneyebiliriz.
     socket.emit("joinRoom", { name: name, roomCode: roomCode });
   }
 });
@@ -274,8 +345,8 @@ for (var i = 0; i < roleCards.length; i++) {
 
 // CASE kartları (şimdilik tek kart ama yapı hazır)
 var caseCards = document.querySelectorAll(".case-card");
-for (var i = 0; i < caseCards.length; i++) {
-  caseCards[i].addEventListener("click", function () {
+for (var i2 = 0; i2 < caseCards.length; i2++) {
+  caseCards[i2].addEventListener("click", function () {
     selectedCaseId = this.getAttribute("data-case-id");
     // istersen burada seçili class'ı vs. da ayarlayabiliriz
   });
@@ -334,6 +405,26 @@ submitAnswerBtn.addEventListener("click", function () {
   answerInput.disabled = true;
 });
 
+// --- Room list & ping UI ---
+
+if (refreshRoomsBtn) {
+  refreshRoomsBtn.addEventListener("click", function () {
+    requestRoomList();
+  });
+}
+
+function openPasswordPromptForRoom(code) {
+  var name = nameInput.value.trim();
+  if (!name) {
+    joinError.style.display = "block";
+    joinError.textContent = "Önce bir isim girin, sonra odaya katılabilirsiniz.";
+    return;
+  }
+  var pwd = window.prompt("Bu oda şifreli. Lütfen şifreyi girin:");
+  if (pwd === null) return; // iptal
+  socket.emit("joinRoom", { name: name, roomCode: code, password: pwd });
+}
+
 // --- Sunucudan gelenler ---
 
 socket.on("welcome", function (data) {
@@ -354,6 +445,9 @@ socket.on("joinSuccess", function (data) {
   if (myRoomCode) {
     roomCodeDisplay.textContent = myRoomCode;
   }
+
+  // join ekranından çıktık, ping loop durabilir
+  stopPingLoop();
 
   // Host ise "Oyunu Başlat" butonu görünsün
   if (data.isHost) {
@@ -471,6 +565,67 @@ socket.on("finalResult", function (data) {
     answerInput.disabled = false;
     finalSection.style.display = "block";
   }
+});
+
+// Oda listesi güncelleme
+socket.on("roomList", function (data) {
+  if (!roomListContainer) return;
+  var rooms = data.rooms || [];
+  if (!rooms.length) {
+    roomListContainer.innerHTML = "Şu anda açık oda yok.";
+    return;
+  }
+
+  var html = "";
+  rooms.forEach(function (r) {
+    var lockIcon = r.isPrivate ? "🔒" : "🔓";
+    var statusLabel = r.status === "LOBBY" ? "Lobby" : "Oyunda";
+    html += `
+      <div class="room-list-item" data-room-code="${r.roomCode}" data-private="${r.isPrivate}">
+        <div class="room-list-top">
+          <span class="room-list-name">${lockIcon} ${r.name}</span>
+          <span class="room-list-players">${r.currentPlayers}/${r.maxPlayers}</span>
+        </div>
+        <div class="room-list-meta">
+          Kod: ${r.roomCode} · Durum: ${statusLabel}
+          ${r.caseTitle ? " · Vaka: " + r.caseTitle : ""}
+        </div>
+      </div>
+    `;
+  });
+
+  roomListContainer.innerHTML = html;
+
+  // tıklayan odaya katılmaya çalışsın
+  var items = roomListContainer.querySelectorAll(".room-list-item");
+  items.forEach(function (el) {
+    el.addEventListener("click", function () {
+      var code = this.getAttribute("data-room-code");
+      var isPrivate = this.getAttribute("data-private") === "true";
+
+      roomCodeInput.value = code; // inputa da yaz
+
+      if (!isPrivate) {
+        var name = nameInput.value.trim();
+        if (!name) {
+          joinError.style.display = "block";
+          joinError.textContent = "Önce bir isim girin, sonra odaya katılabilirsiniz.";
+          return;
+        }
+        socket.emit("joinRoom", { name: name, roomCode: code });
+      } else {
+        openPasswordPromptForRoom(code);
+      }
+    });
+  });
+});
+
+// ping cevabı
+socket.on("pongCheck", function (data) {
+  if (!data || !data.sentAt) return;
+  var rtt = Date.now() - data.sentAt;
+  lastPingMs = rtt;
+  updatePingLabel(rtt);
 });
 
 // --- Paylaşım / link oluşturma ---
