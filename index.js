@@ -10,21 +10,46 @@ const io = new Server(server);
 // public klasörünü statik olarak sun
 app.use(express.static("public"));
 
-// --- SABİT BULMACA --- //
-const puzzle = {
-  answer: "garson",
-  phases: [
-    "1. İpucu: Kurbanın telefonunda, olaydan kısa süre önce bir restoran garsonuyla yapılan mesajlaşmalar bulunuyor.",
-    "2. İpucu: Olay anında, diğer personel ifade verirken garsonun kısa bir süre ortadan kaybolduğunu söylüyor.",
-    "3. İpucu: Güvenlik kamerası kayıtlarında, garsonun olay saatine yakın bir zamanda mutfak kapısının yanında telaşla bir şeyi saklamaya çalıştığı görülüyor."
-  ],
-  finalQuestion: "Katil kim? (cevabı tek kelime olarak yaz)"
+// --- VAKALAR / CASE'LER --- //
+const CASES = {
+  restaurant_murder: {
+    id: "restaurant_murder",
+    title: "Restorandaki Cinayet",
+    victimName: "Mert Yılmaz",
+    victimDesc:
+      "Şehrin bilinen iş insanlarından, akşam yemeği sırasında öldürülüyor.",
+    location: "İstanbul, Nişantaşı - şık bir restoran",
+    time: "22:30 civarı",
+    suspects: [
+      {
+        name: "Restoran Garsonu",
+        brief: "Olaydan kısa süre önce kurbanla mesajlaşıyor.",
+      },
+      {
+        name: "İş Ortağı",
+        brief: "Son zamanlarda araları bozuk, maddi anlaşmazlık var.",
+      },
+      {
+        name: "Eski Sevgili",
+        brief: "Restorana tesadüfen gelmiş gibi davranıyor.",
+      },
+    ],
+    answer: "garson",
+    phases: [
+      "1. İpucu: Kurbanın telefonunda, olaydan kısa süre önce bir restoran garsonuyla yapılan mesajlaşmalar bulunuyor.",
+      "2. İpucu: Olay anında, diğer personel ifade verirken garsonun kısa bir süre ortadan kaybolduğunu söylüyor.",
+      "3. İpucu: Güvenlik kamerası kayıtlarında, garsonun olay saatine yakın bir zamanda mutfak kapısının yanında telaşla bir şeyi saklamaya çalıştığı görülüyor.",
+    ],
+    finalQuestion: "Katil kim? (cevabı tek kelime olarak yaz)",
+  },
 };
+
+const DEFAULT_CASE_ID = "restaurant_murder";
 
 // ODA BAZLI OYUN YAPISI
 const MAX_PLAYERS = 2;
 
-// rooms: roomCode -> { hostId, players: { socketId: {...} }, currentPhase, puzzle }
+// rooms: roomCode -> { hostId, players: { socketId: {...} }, currentPhase, puzzle, selectedCaseId }
 const rooms = {};
 
 // Basit normalize fonksiyonu
@@ -48,7 +73,7 @@ function getPublicPlayers(roomCode) {
     name: p.name,
     role: p.role,
     readyPhase: p.readyPhase,
-    lobbyReady: p.lobbyReady
+    lobbyReady: p.lobbyReady,
   }));
 }
 
@@ -80,13 +105,13 @@ function broadcastPhase(roomCode) {
     io.to(roomCode).emit("phaseData", {
       phase: currentPhase,
       clue,
-      finalQuestion: null
+      finalQuestion: null,
     });
   } else if (currentPhase === 4) {
     io.to(roomCode).emit("phaseData", {
       phase: currentPhase,
       clue: null,
-      finalQuestion: room.puzzle.finalQuestion
+      finalQuestion: room.puzzle.finalQuestion,
     });
   }
 }
@@ -103,8 +128,9 @@ io.on("connection", (socket) => {
     rooms[roomCode] = {
       hostId: socket.id,
       currentPhase: 0,
-      puzzle: puzzle, // şimdilik tek bulmaca
-      players: {}
+      selectedCaseId: DEFAULT_CASE_ID,
+      puzzle: CASES[DEFAULT_CASE_ID], // varsayılan vaka
+      players: {},
     };
 
     rooms[roomCode].players[socket.id] = {
@@ -113,7 +139,7 @@ io.on("connection", (socket) => {
       role: null,
       readyPhase: 0,
       lobbyReady: false,
-      answer: null
+      answer: null,
     };
 
     socket.join(roomCode);
@@ -121,7 +147,9 @@ io.on("connection", (socket) => {
 
     socket.emit("roomCreated", { roomCode });
     socket.emit("joinSuccess", { role: null, roomCode, isHost: true });
-    io.to(roomCode).emit("playersUpdate", { players: getPublicPlayers(roomCode) });
+    io.to(roomCode).emit("playersUpdate", {
+      players: getPublicPlayers(roomCode),
+    });
   });
 
   // Odaya katılma
@@ -146,14 +174,16 @@ io.on("connection", (socket) => {
       role: null,
       readyPhase: 0,
       lobbyReady: false,
-      answer: null
+      answer: null,
     };
 
     socket.join(roomCode);
     socket.data.roomCode = roomCode;
 
     socket.emit("joinSuccess", { role: null, roomCode, isHost: false });
-    io.to(roomCode).emit("playersUpdate", { players: getPublicPlayers(roomCode) });
+    io.to(roomCode).emit("playersUpdate", {
+      players: getPublicPlayers(roomCode),
+    });
 
     io.to(roomCode).emit(
       "lobbyMessage",
@@ -170,7 +200,9 @@ io.on("connection", (socket) => {
     if (!room.players[socket.id]) return;
 
     room.players[socket.id].lobbyReady = !!ready;
-    io.to(roomCode).emit("playersUpdate", { players: getPublicPlayers(roomCode) });
+    io.to(roomCode).emit("playersUpdate", {
+      players: getPublicPlayers(roomCode),
+    });
   });
 
   // Rol seçimi
@@ -195,7 +227,31 @@ io.on("connection", (socket) => {
     }
 
     room.players[socket.id].role = role;
-    io.to(roomCode).emit("playersUpdate", { players: getPublicPlayers(roomCode) });
+    io.to(roomCode).emit("playersUpdate", {
+      players: getPublicPlayers(roomCode),
+    });
+  });
+
+  // Vaka seçme (sadece host)
+  socket.on("selectCase", ({ caseId }) => {
+    const roomCode = socket.data?.roomCode;
+    if (!roomCode || !rooms[roomCode]) return;
+
+    const room = rooms[roomCode];
+
+    // sadece host değiştirebilsin
+    if (socket.id !== room.hostId) return;
+
+    if (!CASES[caseId]) return;
+
+    room.selectedCaseId = caseId;
+    room.puzzle = CASES[caseId];
+
+    // lobide herkese hangi vakanın seçildiğini söyle
+    io.to(roomCode).emit("caseSelected", {
+      caseId: caseId,
+      title: CASES[caseId].title,
+    });
   });
 
   // Host oyunu başlat
@@ -232,7 +288,9 @@ io.on("connection", (socket) => {
     if (!room.players[socket.id]) return;
 
     room.players[socket.id].readyPhase = phase;
-    io.to(roomCode).emit("playersUpdate", { players: getPublicPlayers(roomCode) });
+    io.to(roomCode).emit("playersUpdate", {
+      players: getPublicPlayers(roomCode),
+    });
 
     if (phase === room.currentPhase && allPlayersReadyForPhase(roomCode, phase)) {
       if (room.currentPhase < 3) {
@@ -260,12 +318,14 @@ io.on("connection", (socket) => {
 
     if (arr.every((p) => p.answer !== null)) {
       const correct = normalize(room.puzzle.answer);
-      const allCorrect = arr.every((p) => normalize(p.answer) === correct);
+      const allCorrect = arr.every(
+        (p) => normalize(p.answer) === correct
+      );
 
       if (allCorrect) {
         io.to(roomCode).emit("finalResult", {
           success: true,
-          correctAnswer: room.puzzle.answer
+          correctAnswer: room.puzzle.answer,
         });
       } else {
         io.to(roomCode).emit("finalResult", { success: false });
@@ -293,7 +353,9 @@ io.on("connection", (socket) => {
         p.lobbyReady = false;
         p.answer = null;
       });
-      io.to(roomCode).emit("playersUpdate", { players: getPublicPlayers(roomCode) });
+      io.to(roomCode).emit("playersUpdate", {
+        players: getPublicPlayers(roomCode),
+      });
       io.to(roomCode).emit(
         "lobbyMessage",
         "Bir oyuncu lobiden ayrıldı. Oyun resetlendi."
@@ -319,7 +381,9 @@ io.on("connection", (socket) => {
         p.lobbyReady = false;
         p.answer = null;
       });
-      io.to(roomCode).emit("playersUpdate", { players: getPublicPlayers(roomCode) });
+      io.to(roomCode).emit("playersUpdate", {
+        players: getPublicPlayers(roomCode),
+      });
       io.to(roomCode).emit(
         "lobbyMessage",
         "Bir oyuncu ayrıldı. Oyun resetlendi."
