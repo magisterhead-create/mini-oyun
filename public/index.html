@@ -53,9 +53,19 @@
           <div class="label">İsmin</div>
           <input id="nameInput" placeholder="Takma adın (örn: DedektifAyşe)" />
 
+          <!-- Join modu için oda kodu -->
           <div id="roomCodeGroup" style="margin-top:12px; display:none;">
             <div class="label">Oda Kodu</div>
             <input id="roomCodeInput" placeholder="Örn: ABCD1" />
+          </div>
+
+          <!-- Host modu için ekstra alanlar (oda ismi + şifre) -->
+          <div id="hostExtraGroup" style="margin-top:12px; display:none;">
+            <div class="label">Oda İsmi (isteğe bağlı)</div>
+            <input id="roomNameInput" placeholder="Örn: Akşam Vardiyası Vakası" />
+
+            <div class="label" style="margin-top:8px;">Oda Şifresi (isteğe bağlı)</div>
+            <input id="roomPasswordInput" placeholder="Boş bırakırsan şifresiz olur" />
           </div>
 
           <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;">
@@ -64,6 +74,24 @@
           </div>
 
           <div id="joinError" class="message error" style="display:none;"></div>
+
+          <!-- Community Server List -->
+          <div id="roomListPanel" class="sub-panel" style="margin-top:16px; display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.12em; color:var(--text-muted);">
+                Açık Odalar
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div style="font-size:11px; color:var(--text-muted);">
+                  Ping: <span id="pingLabel">-</span>
+                </div>
+                <button id="refreshRoomsBtn" class="btn-ghost btn-small">Yenile</button>
+              </div>
+            </div>
+            <div id="roomListContainer" style="font-size:13px;">
+              Şu anda açık oda yok.
+            </div>
+          </div>
         </div>
 
         <!-- 3) LOBBY & OYUN -->
