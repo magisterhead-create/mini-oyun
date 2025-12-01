@@ -139,7 +139,7 @@ function getPublicRoomList() {
     };
   });
 
-  // Dolu odaları istersen filtreleyebiliriz (şimdilik herkes görebilsin ama client doluysa katılmayı engeller)
+  // İstersen dolu odaları filtreleyebilirsin
   // .filter(r => r.currentPlayers < r.maxPlayers);
 
   // Önce lobbydekiler, sonra eski/yeniler
@@ -155,6 +155,18 @@ function getPublicRoomList() {
 
 function broadcastRoomList() {
   io.emit("roomList", { rooms: getPublicRoomList() });
+}
+
+// Sistem mesajını chat'e de düşür
+function sendSystemMessage(roomCode, text) {
+  const room = rooms[roomCode];
+  if (!room) return;
+  io.to(roomCode).emit("chatMessage", {
+    from: "Sistem",
+    text,
+    time: Date.now(),
+    isSystem: true,
+  });
 }
 
 // Socket.io olayları
@@ -173,6 +185,29 @@ io.on("connection", (socket) => {
   // Oda listesi isteği (join ekranındaki "serverleri yenile" butonu vs. burayı kullanacak)
   socket.on("getRoomList", () => {
     socket.emit("roomList", { rooms: getPublicRoomList() });
+  });
+
+  // Lobby / oyun içi basit chat (kullanıcı mesajları)
+  socket.on("sendChat", ({ message }) => {
+    const roomCode = socket.data?.roomCode;
+    if (!roomCode || !rooms[roomCode]) return;
+
+    const room = rooms[roomCode];
+    const player = room.players[socket.id];
+
+    const name = player?.name || "Anonim";
+    const text = (message || "").toString().trim();
+
+    if (!text) return; // boş mesaj gönderme
+
+    const safeText = text.slice(0, 300);
+
+    io.to(roomCode).emit("chatMessage", {
+      from: name,
+      text: safeText,
+      time: Date.now(),
+      isSystem: false,
+    });
   });
 
   // Oda kurma
@@ -209,6 +244,7 @@ io.on("connection", (socket) => {
       players: getPublicPlayers(roomCode),
     });
 
+    sendSystemMessage(roomCode, `${name || "Bir oyuncu"} odayı oluşturdu.`);
     broadcastRoomList();
   });
 
@@ -238,9 +274,11 @@ io.on("connection", (socket) => {
       return;
     }
 
+    const playerName = name || "Anonim";
+
     room.players[socket.id] = {
       id: socket.id,
-      name: name || "Anonim",
+      name: playerName,
       role: null,
       readyPhase: 0,
       lobbyReady: false,
@@ -260,6 +298,7 @@ io.on("connection", (socket) => {
       "Oyuncular rol seçip 'Hazırım' dedikten sonra host 'Oyunu Başlat' ile oyunu başlatabilir."
     );
 
+    sendSystemMessage(roomCode, `${playerName} odaya katıldı.`);
     broadcastRoomList();
   });
 
@@ -325,6 +364,7 @@ io.on("connection", (socket) => {
       title: CASES[caseId].title,
     });
 
+    sendSystemMessage(roomCode, `Seçilen vaka: ${CASES[caseId].title}`);
     broadcastRoomList();
   });
 
@@ -348,6 +388,7 @@ io.on("connection", (socket) => {
 
     room.currentPhase = 1;
     io.to(roomCode).emit("gameStarting");
+    sendSystemMessage(roomCode, "Oyun başlamak üzere...");
     broadcastRoomList(); // status LOBBY -> IN_GAME
 
     setTimeout(() => {
@@ -403,8 +444,10 @@ io.on("connection", (socket) => {
           success: true,
           correctAnswer: room.puzzle.answer,
         });
+        sendSystemMessage(roomCode, "Tebrikler! Doğru katili buldunuz.");
       } else {
         io.to(roomCode).emit("finalResult", { success: false });
+        sendSystemMessage(roomCode, "Cevaplar yanlış. Tekrar deneyebilirsiniz.");
         arr.forEach((p) => (p.answer = null));
       }
     }
@@ -416,6 +459,9 @@ io.on("connection", (socket) => {
     if (!roomCode || !rooms[roomCode]) return;
 
     const room = rooms[roomCode];
+    const player = room.players[socket.id];
+    const playerName = player?.name || "Bir oyuncu";
+
     delete room.players[socket.id];
     socket.leave(roomCode);
     socket.data.roomCode = null;
@@ -436,6 +482,7 @@ io.on("connection", (socket) => {
         "lobbyMessage",
         "Bir oyuncu lobiden ayrıldı. Oyun resetlendi."
       );
+      sendSystemMessage(roomCode, `${playerName} odadan ayrıldı. Oyun resetlendi.`);
     }
 
     broadcastRoomList();
@@ -448,6 +495,9 @@ io.on("connection", (socket) => {
     if (!roomCode || !rooms[roomCode]) return;
 
     const room = rooms[roomCode];
+    const player = room.players[socket.id];
+    const playerName = player?.name || "Bir oyuncu";
+
     delete room.players[socket.id];
 
     if (Object.keys(room.players).length === 0) {
@@ -466,6 +516,7 @@ io.on("connection", (socket) => {
         "lobbyMessage",
         "Bir oyuncu ayrıldı. Oyun resetlendi."
       );
+      sendSystemMessage(roomCode, `${playerName} bağlantıyı kaybetti. Oyun resetlendi.`);
     }
 
     broadcastRoomList();
