@@ -18,6 +18,11 @@ const overlayCloseBtn1 = document.getElementById("overlayCloseBtn1");
 const overlayCloseBtn2 = document.getElementById("overlayCloseBtn2");
 const roleOverlayCloseBtn = document.getElementById("roleOverlayCloseBtn");
 
+// Case overlay
+const caseSelectOverlay = document.getElementById("caseSelectOverlay");
+const caseOverlayCloseBtn = document.getElementById("caseOverlayCloseBtn");
+const beginInvestigationBtn = document.getElementById("beginInvestigationBtn");
+
 // Bağlantı ekranı
 const connectionSection = document.getElementById("connectionSection");
 const nameInput = document.getElementById("nameInput");
@@ -66,6 +71,9 @@ let myRoomCode = null;
 let currentPhase = 0;
 let mode = null; // "host" veya "join"
 let myLobbyReady = false;
+
+// seçili case (şimdilik tek vaka)
+let selectedCaseId = "restaurant_murder";
 
 // --- Yardımcı fonksiyonlar ---
 
@@ -126,6 +134,10 @@ function resetUIToMenu() {
   lobbyReadyBtn.disabled = false;
   lobbyReadyBtn.textContent = "Hazırım";
   startGameBtn.disabled = false;
+
+  // case butonu varsayılan haline dönsün
+  selectCaseBtn.textContent = "Default Case";
+  selectedCaseId = "restaurant_murder";
 }
 
 // --- Overlay logic ---
@@ -135,6 +147,7 @@ function openOverlay(which) {
   howToOverlay.style.display = "none";
   creditsOverlay.style.display = "none";
   roleSelectOverlay.style.display = "none";
+  caseSelectOverlay.style.display = "none";
 
   if (which === "howto") {
     howToOverlay.style.display = "block";
@@ -142,6 +155,8 @@ function openOverlay(which) {
     creditsOverlay.style.display = "block";
   } else if (which === "roles") {
     roleSelectOverlay.style.display = "block";
+  } else if (which === "cases") {
+    caseSelectOverlay.style.display = "block";
   }
 }
 
@@ -150,6 +165,7 @@ function closeOverlay() {
   howToOverlay.style.display = "none";
   creditsOverlay.style.display = "none";
   roleSelectOverlay.style.display = "none";
+  caseSelectOverlay.style.display = "none";
 }
 
 // Overlay butonları
@@ -164,6 +180,7 @@ creditsBtn.addEventListener("click", function () {
 overlayCloseBtn1.addEventListener("click", closeOverlay);
 overlayCloseBtn2.addEventListener("click", closeOverlay);
 roleOverlayCloseBtn.addEventListener("click", closeOverlay);
+caseOverlayCloseBtn.addEventListener("click", closeOverlay);
 
 overlayBackdrop.addEventListener("click", function (e) {
   if (e.target === overlayBackdrop) closeOverlay();
@@ -255,9 +272,30 @@ for (var i = 0; i < roleCards.length; i++) {
   });
 }
 
-// Vaka seçimi (şimdilik placeholder)
+// CASE kartları (şimdilik tek kart ama yapı hazır)
+var caseCards = document.querySelectorAll(".case-card");
+for (var i = 0; i < caseCards.length; i++) {
+  caseCards[i].addEventListener("click", function () {
+    selectedCaseId = this.getAttribute("data-case-id");
+    // istersen burada seçili class'ı vs. da ayarlayabiliriz
+  });
+}
+
+// Case seçimi - overlay aç
 selectCaseBtn.addEventListener("click", function () {
-  showLobbyInfo("Şimdilik tek bir vaka mevcut. Yeni vakalar yakında eklenecek.");
+  roleError.style.display = "none";
+  roleError.textContent = "";
+  openOverlay("cases");
+});
+
+// Begin Investigation -> seçili case'i sunucuya gönder
+beginInvestigationBtn.addEventListener("click", function () {
+  if (!myRoomCode) {
+    showLobbyInfo("Önce bir odaya bağlı olmalısın.");
+    return;
+  }
+  socket.emit("selectCase", { caseId: selectedCaseId });
+  closeOverlay();
 });
 
 // Oyunu başlat (sadece host)
@@ -387,6 +425,12 @@ socket.on("lobbyMessage", function (msg) {
 
 socket.on("gameStarting", function () {
   showLobbyInfo("Oyun 3 saniye içinde başlıyor...");
+});
+
+socket.on("caseSelected", function (data) {
+  // seçilen vakayı lobide göster
+  showLobbyInfo("Seçilen vaka: " + data.title);
+  selectCaseBtn.textContent = "Vaka: " + data.title;
 });
 
 socket.on("phaseData", function (data) {
