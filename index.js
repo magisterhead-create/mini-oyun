@@ -10,56 +10,34 @@ const io = new Server(server);
 // public klasörünü statik olarak sun
 app.use(express.static("public"));
 
-// --- VAKALAR / CASE'LER --- //
-const CASES = {
+// --------- VAKALAR (CASES) --------- //
+
+const cases = {
   restaurant_murder: {
     id: "restaurant_murder",
-    title: "Restorandaki Cinayet",
-    victimName: "Mert Yılmaz",
-    victimDesc:
-      "Şehrin bilinen iş insanlarından, akşam yemeği sırasında öldürülüyor.",
-    location: "İstanbul, Nişantaşı - şık bir restoran",
-    time: "22:30 civarı",
-    suspects: [
-      {
-        name: "Restoran Garsonu",
-        brief: "Olaydan kısa süre önce kurbanla mesajlaşıyor.",
-      },
-      {
-        name: "İş Ortağı",
-        brief: "Son zamanlarda araları bozuk, maddi anlaşmazlık var.",
-      },
-      {
-        name: "Eski Sevgili",
-        brief: "Restorana tesadüfen gelmiş gibi davranıyor.",
-      },
-    ],
+    title: "Restoran Cinayeti",
     answer: "garson",
     phases: [
       "1. İpucu: Kurbanın telefonunda, olaydan kısa süre önce bir restoran garsonuyla yapılan mesajlaşmalar bulunuyor.",
       "2. İpucu: Olay anında, diğer personel ifade verirken garsonun kısa bir süre ortadan kaybolduğunu söylüyor.",
-      "3. İpucu: Güvenlik kamerası kayıtlarında, garsonun olay saatine yakın bir zamanda mutfak kapısının yanında telaşla bir şeyi saklamaya çalıştığı görülüyor.",
+      "3. İpucu: Güvenlik kamerası kayıtlarında, garsonun olay saatine yakın bir zamanda mutfak kapısının yanında telaşla bir şeyi saklamaya çalıştığı görülüyor."
     ],
-    finalQuestion: "Katil kim? (cevabı tek kelime olarak yaz)",
-  },
+    finalQuestion: "Katil kim? (cevabı tek kelime olarak yaz)"
+  }
 };
 
-const DEFAULT_CASE_ID = "restaurant_murder";
+// --------- ODA YAPISI --------- //
 
-// ODA BAZLI OYUN YAPISI
-const MAX_PLAYERS = 2;
+const MAX_PLAYERS = 4; // istersen tekrar 2 yapabilirsin
 
 // rooms: roomCode -> {
-//   hostId,
-//   players: { socketId: {...} },
-//   currentPhase,
-//   puzzle,
-//   selectedCaseId,
-//   name, isPrivate, password, createdAt
+//   hostId, roomName, password, currentPhase, currentCaseId, puzzle,
+//   players: { socketId: {...} }
 // }
 const rooms = {};
 
-// Basit normalize fonksiyonu
+// --------- HELPERS --------- //
+
 function normalize(str) {
   return (str || "").trim().toLowerCase();
 }
@@ -72,6 +50,11 @@ function generateRoomCode() {
   return code;
 }
 
+function getRoomStatus(room) {
+  if (!room) return "LOBBY";
+  return room.currentPhase === 0 ? "LOBBY" : "INGAME";
+}
+
 function getPublicPlayers(roomCode) {
   const room = rooms[roomCode];
   if (!room) return [];
@@ -81,6 +64,7 @@ function getPublicPlayers(roomCode) {
     role: p.role,
     readyPhase: p.readyPhase,
     lobbyReady: p.lobbyReady,
+    isHost: p.id === room.hostId // ⭐ host bilgisi
   }));
 }
 
@@ -88,7 +72,7 @@ function allPlayersReadyForPhase(roomCode, phase) {
   const room = rooms[roomCode];
   if (!room) return false;
   const arr = Object.values(room.players);
-  if (arr.length < MAX_PLAYERS) return false;
+  if (arr.length < 1) return false;
   return arr.every((p) => p.readyPhase === phase);
 }
 
@@ -96,8 +80,7 @@ function allLobbyReady(roomCode) {
   const room = rooms[roomCode];
   if (!room) return false;
   const arr = Object.values(room.players);
-  if (arr.length < MAX_PLAYERS) return false;
-  // Hem rol seçili hem lobbyReady true olmalı
+  if (arr.length < 1) return false;
   return arr.every((p) => p.lobbyReady && p.role);
 }
 
@@ -112,159 +95,62 @@ function broadcastPhase(roomCode) {
     io.to(roomCode).emit("phaseData", {
       phase: currentPhase,
       clue,
-      finalQuestion: null,
+      finalQuestion: null
     });
   } else if (currentPhase === 4) {
     io.to(roomCode).emit("phaseData", {
       phase: currentPhase,
       clue: null,
-      finalQuestion: room.puzzle.finalQuestion,
+      finalQuestion: room.puzzle.finalQuestion
     });
   }
 }
 
-// Oda listesi üret (community server list için)
-function getPublicRoomList() {
+function sendRoomList(targetSocket = null) {
   const list = Object.entries(rooms).map(([code, room]) => {
     const currentPlayers = Object.keys(room.players).length;
+    const caseTitle =
+      room.puzzle && room.puzzle.title
+        ? room.puzzle.title
+        : (cases[room.currentCaseId]?.title || null);
+
     return {
       roomCode: code,
-      name: room.name || "İsimsiz Oda",
-      isPrivate: !!room.isPrivate,
+      name: room.roomName || `Oda ${code}`,
+      isPrivate: !!room.password,
       currentPlayers,
       maxPlayers: MAX_PLAYERS,
-      caseTitle: room.puzzle?.title || null,
-      status: room.currentPhase === 0 ? "LOBBY" : "IN_GAME",
-      createdAt: room.createdAt || 0,
+      status: getRoomStatus(room),
+      caseTitle
     };
   });
 
-  // Önce lobbydekiler, sonra eski/yeniler
-  list.sort((a, b) => {
-    if (a.status !== b.status) {
-      return a.status === "LOBBY" ? -1 : 1;
-    }
-    return a.createdAt - b.createdAt;
-  });
-
-  return list;
+  const payload = { rooms: list };
+  if (targetSocket) {
+    targetSocket.emit("roomList", payload);
+  } else {
+    io.emit("roomList", payload);
+  }
 }
 
 function broadcastRoomList() {
-  io.emit("roomList", { rooms: getPublicRoomList() });
+  sendRoomList(null);
 }
 
-// Sistem mesajını chat'e de düşür
 function sendSystemMessage(roomCode, text) {
-  const room = rooms[roomCode];
-  if (!room) return;
   io.to(roomCode).emit("chatMessage", {
     from: "Sistem",
     text,
     time: Date.now(),
-    isSystem: true,
+    isSystem: true
   });
 }
 
-// Socket.io olayları
+// --------- SOCKET.IO --------- //
+
 io.on("connection", (socket) => {
   console.log("Bir kullanıcı bağlandı:", socket.id);
   socket.emit("welcome", { id: socket.id });
-    // Host oyuncu atma (kick)
-  socket.on("kickPlayer", ({ targetId }) => {
-    const roomCode = socket.data?.roomCode;
-    if (!roomCode || !rooms[roomCode]) return;
-
-    const room = rooms[roomCode];
-
-    // Sadece host kullanabilsin
-    if (socket.id !== room.hostId) return;
-
-    // Hedef oyuncu mevcut mu?
-    const target = room.players[targetId];
-    if (!target) return;
-
-    // Host kendini atamasın
-    if (targetId === room.hostId) return;
-
-    const targetName = target.name || "Bir oyuncu";
-
-    // Odanın içinden çıkar
-    delete room.players[targetId];
-
-    const targetSocket = io.sockets.sockets.get(targetId);
-    if (targetSocket) {
-      targetSocket.leave(roomCode);
-      targetSocket.data.roomCode = null;
-      targetSocket.emit("kicked", {
-        reason: "Host seni odadan attı."
-      });
-    }
-
-    if (Object.keys(room.players).length === 0) {
-      // Oda boş kaldıysa sil
-      delete rooms[roomCode];
-    } else {
-      // Host hala duruyor, ama oyun resetlensin
-      room.currentPhase = 0;
-      Object.values(room.players).forEach((p) => {
-        p.readyPhase = 0;
-        p.lobbyReady = false;
-        p.answer = null;
-      });
-
-      io.to(roomCode).emit("playersUpdate", {
-        players: getPublicPlayers(roomCode)
-      });
-      io.to(roomCode).emit(
-        "lobbyMessage",
-        `${targetName} odadan atıldı. Oyun resetlendi.`
-      );
-      sendSystemMessage(
-        roomCode,
-        `${targetName} host tarafından odadan atıldı.`
-      );
-    }
-
-    broadcastRoomList();
-  });
-
-
-  // basit ping altyapısı (client burada RTT ölçebilir)
-  socket.on("pingCheck", (payload) => {
-    socket.emit("pongCheck", {
-      sentAt: payload?.sentAt || null,
-      serverNow: Date.now(),
-    });
-  });
-
-  // Oda listesi isteği (join ekranındaki "serverleri yenile" butonu vs. burayı kullanacak)
-  socket.on("getRoomList", () => {
-    socket.emit("roomList", { rooms: getPublicRoomList() });
-  });
-
-  // Lobby / oyun içi basit chat (kullanıcı mesajları)
-  socket.on("sendChat", ({ message }) => {
-    const roomCode = socket.data?.roomCode;
-    if (!roomCode || !rooms[roomCode]) return;
-
-    const room = rooms[roomCode];
-    const player = room.players[socket.id];
-
-    const name = player?.name || "Anonim";
-    const text = (message || "").toString().trim();
-
-    if (!text) return; // boş mesaj gönderme
-
-    const safeText = text.slice(0, 300);
-
-    io.to(roomCode).emit("chatMessage", {
-      from: name,
-      text: safeText,
-      time: Date.now(),
-      isSystem: false,
-    });
-  });
 
   // Oda kurma
   socket.on("createRoom", ({ name, roomName, password }) => {
@@ -272,14 +158,12 @@ io.on("connection", (socket) => {
 
     rooms[roomCode] = {
       hostId: socket.id,
+      roomName: roomName || `Oda ${roomCode}`,
+      password: password ? password : null,
       currentPhase: 0,
-      selectedCaseId: DEFAULT_CASE_ID,
-      puzzle: CASES[DEFAULT_CASE_ID], // varsayılan vaka
-      name: roomName || "İsimsiz Oda",
-      isPrivate: !!password,
-      password: password || null, // basit string, istersen ileride hash yaparsın
-      createdAt: Date.now(),
-      players: {},
+      currentCaseId: "restaurant_murder",
+      puzzle: cases["restaurant_murder"],
+      players: {}
     };
 
     rooms[roomCode].players[socket.id] = {
@@ -288,7 +172,7 @@ io.on("connection", (socket) => {
       role: null,
       readyPhase: 0,
       lobbyReady: false,
-      answer: null,
+      answer: null
     };
 
     socket.join(roomCode);
@@ -297,12 +181,16 @@ io.on("connection", (socket) => {
     socket.emit("roomCreated", { roomCode });
     socket.emit("joinSuccess", { role: null, roomCode, isHost: true });
     io.to(roomCode).emit("playersUpdate", {
-      players: getPublicPlayers(roomCode),
-      hostId: rooms[roomCode].hostId,
+      players: getPublicPlayers(roomCode)
     });
 
     sendSystemMessage(roomCode, `${name || "Bir oyuncu"} odayı oluşturdu.`);
     broadcastRoomList();
+  });
+
+  // Oda listesi isteği
+  socket.on("getRoomList", () => {
+    sendRoomList(socket);
   });
 
   // Odaya katılma
@@ -315,48 +203,51 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // Şifre kontrolü (oda private ise)
-    if (room.isPrivate) {
-      const given = (password || "").trim();
-      const real = (room.password || "").trim();
-      if (!given || given !== real) {
-        socket.emit("joinError", "Bu oda şifreli. Şifre yanlış.");
-        return;
-      }
-    }
-
     const playerCount = Object.keys(room.players).length;
     if (playerCount >= MAX_PLAYERS) {
       socket.emit("joinError", "Oda dolu.");
       return;
     }
 
-    const playerName = name || "Anonim";
+    if (room.password) {
+      if (!password) {
+        socket.emit("joinError", "Bu odaya katılmak için şifre girmelisin.");
+        return;
+      }
+      if (password !== room.password) {
+        socket.emit("joinError", "Şifre hatalı.");
+        return;
+      }
+    }
 
     room.players[socket.id] = {
       id: socket.id,
-      name: playerName,
+      name: name || "Anonim",
       role: null,
       readyPhase: 0,
       lobbyReady: false,
-      answer: null,
+      answer: null
     };
 
     socket.join(roomCode);
     socket.data.roomCode = roomCode;
 
-    socket.emit("joinSuccess", { role: null, roomCode, isHost: socket.id === room.hostId });
-    io.to(roomCode).emit("playersUpdate", {
-      players: getPublicPlayers(roomCode),
-      hostId: room.hostId,
+    socket.emit("joinSuccess", {
+      role: null,
+      roomCode,
+      isHost: socket.id === room.hostId
     });
 
+    io.to(roomCode).emit("playersUpdate", {
+      players: getPublicPlayers(roomCode)
+    });
+
+    sendSystemMessage(roomCode, `${name || "Bir oyuncu"} odaya katıldı.`);
     io.to(roomCode).emit(
       "lobbyMessage",
       "Oyuncular rol seçip 'Hazırım' dedikten sonra host 'Oyunu Başlat' ile oyunu başlatabilir."
     );
 
-    sendSystemMessage(roomCode, `${playerName} odaya katıldı.`);
     broadcastRoomList();
   });
 
@@ -370,8 +261,7 @@ io.on("connection", (socket) => {
 
     room.players[socket.id].lobbyReady = !!ready;
     io.to(roomCode).emit("playersUpdate", {
-      players: getPublicPlayers(roomCode),
-      hostId: room.hostId,
+      players: getPublicPlayers(roomCode)
     });
   });
 
@@ -398,33 +288,30 @@ io.on("connection", (socket) => {
 
     room.players[socket.id].role = role;
     io.to(roomCode).emit("playersUpdate", {
-      players: getPublicPlayers(roomCode),
-      hostId: room.hostId,
+      players: getPublicPlayers(roomCode)
     });
   });
 
-  // Vaka seçme (sadece host)
+  // Vaka seçimi (sadece host)
   socket.on("selectCase", ({ caseId }) => {
     const roomCode = socket.data?.roomCode;
     if (!roomCode || !rooms[roomCode]) return;
-
     const room = rooms[roomCode];
 
-    // sadece host değiştirebilsin
     if (socket.id !== room.hostId) return;
 
-    if (!CASES[caseId]) return;
+    const c = cases[caseId];
+    if (!c) return;
 
-    room.selectedCaseId = caseId;
-    room.puzzle = CASES[caseId];
+    room.currentCaseId = caseId;
+    room.puzzle = c;
 
-    // lobide herkese hangi vakanın seçildiğini söyle
     io.to(roomCode).emit("caseSelected", {
-      caseId: caseId,
-      title: CASES[caseId].title,
+      caseId,
+      title: c.title
     });
 
-    sendSystemMessage(roomCode, `Seçilen vaka: ${CASES[caseId].title}`);
+    sendSystemMessage(roomCode, `Seçilen vaka değiştirildi: ${c.title}`);
     broadcastRoomList();
   });
 
@@ -448,11 +335,10 @@ io.on("connection", (socket) => {
 
     room.currentPhase = 1;
     io.to(roomCode).emit("gameStarting");
-    sendSystemMessage(roomCode, "Oyun başlamak üzere...");
-    broadcastRoomList(); // status LOBBY -> IN_GAME
-
+    sendSystemMessage(roomCode, "Oyun başlatılıyor...");
     setTimeout(() => {
       broadcastPhase(roomCode);
+      broadcastRoomList();
     }, 3000);
   });
 
@@ -466,8 +352,7 @@ io.on("connection", (socket) => {
 
     room.players[socket.id].readyPhase = phase;
     io.to(roomCode).emit("playersUpdate", {
-      players: getPublicPlayers(roomCode),
-      hostId: room.hostId,
+      players: getPublicPlayers(roomCode)
     });
 
     if (phase === room.currentPhase && allPlayersReadyForPhase(roomCode, phase)) {
@@ -478,6 +363,7 @@ io.on("connection", (socket) => {
         room.currentPhase = 4;
         broadcastPhase(roomCode);
       }
+      broadcastRoomList();
     }
   });
 
@@ -492,20 +378,18 @@ io.on("connection", (socket) => {
     room.players[socket.id].answer = answer;
 
     const arr = Object.values(room.players);
-    if (arr.length < MAX_PLAYERS) return;
+    if (!arr.length) return;
 
     if (arr.every((p) => p.answer !== null)) {
       const correct = normalize(room.puzzle.answer);
-      const allCorrect = arr.every(
-        (p) => normalize(p.answer) === correct
-      );
+      const allCorrect = arr.every((p) => normalize(p.answer) === correct);
 
       if (allCorrect) {
         io.to(roomCode).emit("finalResult", {
           success: true,
-          correctAnswer: room.puzzle.answer,
+          correctAnswer: room.puzzle.answer
         });
-        sendSystemMessage(roomCode, "Tebrikler! Doğru katili buldunuz.");
+        sendSystemMessage(roomCode, "Tebrikler! Tüm oyuncular doğru cevabı buldu.");
       } else {
         io.to(roomCode).emit("finalResult", { success: false });
         sendSystemMessage(roomCode, "Cevaplar yanlış. Tekrar deneyebilirsiniz.");
@@ -514,19 +398,59 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Odayı isteyerek terk etme (ana menüye dön)
-  socket.on("leaveRoom", () => {
+  // Lobby chat
+  socket.on("sendChat", ({ message }) => {
+    const roomCode = socket.data?.roomCode;
+    if (!roomCode || !rooms[roomCode]) return;
+    const room = rooms[roomCode];
+    const player = room.players[socket.id];
+    if (!player) return;
+
+    const text = (message || "").trim();
+    if (!text) return;
+
+    io.to(roomCode).emit("chatMessage", {
+      from: player.name,
+      text,
+      time: Date.now(),
+      isSystem: false
+    });
+  });
+
+  // Ping test
+  socket.on("pingCheck", ({ sentAt }) => {
+    socket.emit("pongCheck", { sentAt });
+  });
+
+  // Host oyuncu atma (kick)
+  socket.on("kickPlayer", ({ targetId }) => {
     const roomCode = socket.data?.roomCode;
     if (!roomCode || !rooms[roomCode]) return;
 
     const room = rooms[roomCode];
-    const player = room.players[socket.id];
-    const playerName = player?.name || "Bir oyuncu";
-    const wasHost = room.hostId === socket.id;
 
-    delete room.players[socket.id];
-    socket.leave(roomCode);
-    socket.data.roomCode = null;
+    // Sadece host kullanabilsin
+    if (socket.id !== room.hostId) return;
+
+    // Hedef oyuncu mevcut mu?
+    const target = room.players[targetId];
+    if (!target) return;
+
+    // Host kendini atamasın
+    if (targetId === room.hostId) return;
+
+    const targetName = target.name || "Bir oyuncu";
+
+    delete room.players[targetId];
+
+    const targetSocket = io.sockets.sockets.get(targetId);
+    if (targetSocket) {
+      targetSocket.leave(roomCode);
+      targetSocket.data.roomCode = null;
+      targetSocket.emit("kicked", {
+        reason: "Host seni odadan attı."
+      });
+    }
 
     if (Object.keys(room.players).length === 0) {
       delete rooms[roomCode];
@@ -538,34 +462,70 @@ io.on("connection", (socket) => {
         p.answer = null;
       });
 
-      // Eğer host ayrıldıysa yeni host olarak ilk oyuncuyu ata
+      io.to(roomCode).emit("playersUpdate", {
+        players: getPublicPlayers(roomCode)
+      });
+      io.to(roomCode).emit(
+        "lobbyMessage",
+        `${targetName} odadan atıldı. Oyun resetlendi.`
+      );
+      sendSystemMessage(
+        roomCode,
+        `${targetName} host tarafından odadan atıldı.`
+      );
+    }
+
+    broadcastRoomList();
+  });
+
+  // Odayı isteyerek terk etme (ana menüye dön)
+  socket.on("leaveRoom", () => {
+    const roomCode = socket.data?.roomCode;
+    if (!roomCode || !rooms[roomCode]) return;
+
+    const room = rooms[roomCode];
+    const player = room.players[socket.id];
+    const playerName = player?.name || "Bir oyuncu";
+    const wasHost = socket.id === room.hostId;
+
+    delete room.players[socket.id];
+    socket.leave(roomCode);
+    socket.data.roomCode = null;
+
+    if (Object.keys(room.players).length === 0) {
+      delete rooms[roomCode];
+    } else {
+      // host çıktıysa yeni host ata
       if (wasHost) {
         const remainingIds = Object.keys(room.players);
         if (remainingIds.length > 0) {
           room.hostId = remainingIds[0];
-          const newHostName = room.players[room.hostId]?.name || "Yeni host";
+          const newHost = room.players[room.hostId];
           sendSystemMessage(
             roomCode,
-            `${playerName} odadan ayrıldı. Yeni host: ${newHostName}. Oyun resetlendi.`
+            `${newHost.name} yeni host oldu.`
           );
         }
-      } else {
-        sendSystemMessage(
-          roomCode,
-          `${playerName} odadan ayrıldı. Oyun resetlendi.`
-        );
       }
 
+      room.currentPhase = 0;
+      Object.values(room.players).forEach((p) => {
+        p.readyPhase = 0;
+        p.lobbyReady = false;
+        p.answer = null;
+      });
       io.to(roomCode).emit("playersUpdate", {
-        players: getPublicPlayers(roomCode),
-        hostId: room.hostId,
+        players: getPublicPlayers(roomCode)
       });
       io.to(roomCode).emit(
         "lobbyMessage",
         "Bir oyuncu lobiden ayrıldı. Oyun resetlendi."
       );
+      sendSystemMessage(
+        roomCode,
+        `${playerName} odadan ayrıldı. Oyun resetlendi.`
+      );
     }
-
     broadcastRoomList();
   });
 
@@ -578,47 +538,44 @@ io.on("connection", (socket) => {
     const room = rooms[roomCode];
     const player = room.players[socket.id];
     const playerName = player?.name || "Bir oyuncu";
-    const wasHost = room.hostId === socket.id;
+    const wasHost = socket.id === room.hostId;
 
     delete room.players[socket.id];
 
     if (Object.keys(room.players).length === 0) {
       delete rooms[roomCode];
     } else {
+      // host düştüyse yeni host ata
+      if (wasHost) {
+        const remainingIds = Object.keys(room.players);
+        if (remainingIds.length > 0) {
+          room.hostId = remainingIds[0];
+          const newHost = room.players[room.hostId];
+          sendSystemMessage(
+            roomCode,
+            `${newHost.name} yeni host oldu.`
+          );
+        }
+      }
+
       room.currentPhase = 0;
       Object.values(room.players).forEach((p) => {
         p.readyPhase = 0;
         p.lobbyReady = false;
         p.answer = null;
       });
-
-      if (wasHost) {
-        const remainingIds = Object.keys(room.players);
-        if (remainingIds.length > 0) {
-          room.hostId = remainingIds[0];
-          const newHostName = room.players[room.hostId]?.name || "Yeni host";
-          sendSystemMessage(
-            roomCode,
-            `${playerName} bağlantıyı kaybetti. Yeni host: ${newHostName}. Oyun resetlendi.`
-          );
-        }
-      } else {
-        sendSystemMessage(
-          roomCode,
-          `${playerName} bağlantıyı kaybetti. Oyun resetlendi.`
-        );
-      }
-
       io.to(roomCode).emit("playersUpdate", {
-        players: getPublicPlayers(roomCode),
-        hostId: room.hostId,
+        players: getPublicPlayers(roomCode)
       });
       io.to(roomCode).emit(
         "lobbyMessage",
         "Bir oyuncu ayrıldı. Oyun resetlendi."
       );
+      sendSystemMessage(
+        roomCode,
+        `${playerName} bağlantıyı kaybetti. Oyun resetlendi.`
+      );
     }
-
     broadcastRoomList();
   });
 });
