@@ -6,7 +6,11 @@ if (!deviceId) {
   deviceId = "dev_" + Math.random().toString(36).substring(2, 11);
   localStorage.setItem("bdp_device_id", deviceId);
 }
-
+// Sayfa açıldığında localStorage'daki ismi yükle
+const savedName = localStorage.getItem("bdp_name");
+if (savedName) {
+  nameInput.value = savedName;
+}
 // Menü
 const menuSection = document.getElementById("menuSection");
 const hostBtn = document.getElementById("hostBtn");
@@ -350,6 +354,8 @@ backToMenuFromConnectBtn.addEventListener("click", function () {
 // Bağlan / Devam et
 connectBtn.addEventListener("click", function () {
   var name = nameInput.value.trim();
+  // İsmi kaydet
+localStorage.setItem("bdp_name", name);
   var roomCode = roomCodeInput.value.trim().toUpperCase();
 
   joinError.style.display = "none";
