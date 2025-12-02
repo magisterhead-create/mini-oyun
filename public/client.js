@@ -547,7 +547,7 @@ socket.on("roleError", function (msg) {
   roleError.textContent = msg;
 });
 
-socket.on("playersUpdate", function (data) {socket.on("playersUpdate", function (data) {
+socket.on("playersUpdate", function (data) {
   // Kendi rol ve hazır durumumu güncelle
   var me = null;
   for (var i = 0; i < data.players.length; i++) {
@@ -635,6 +635,7 @@ socket.on("playersUpdate", function (data) {socket.on("playersUpdate", function 
     });
   }
 });
+
 
   }
 
