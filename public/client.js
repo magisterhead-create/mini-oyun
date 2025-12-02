@@ -149,13 +149,12 @@ function addChatMessage(data) {
   const line = document.createElement("div");
   line.className = "chat-message-line";
 
-  // Sistem mesajı ise daha küçük ve farklı renk
   if (data.isSystem) {
+    // Sistem mesajı
     line.classList.add("chat-message-system");
     const textSpan = document.createElement("span");
     textSpan.className = "chat-message-system-text";
     textSpan.textContent = data.text;
-
     line.appendChild(textSpan);
 
     if (data.time) {
@@ -243,7 +242,9 @@ function resetUIToMenu() {
   startGameBtn.style.display = "none";
 
   // case butonu varsayılan haline dönsün
-  selectCaseBtn.textContent = "Default Case";
+  if (selectCaseBtn) {
+    selectCaseBtn.textContent = "Default Case";
+  }
   selectedCaseId = "restaurant_murder";
 
   // join ekranından çıkınca ping ve room list döngülerini kes
@@ -260,7 +261,7 @@ function openOverlay(which) {
   howToOverlay.style.display = "none";
   creditsOverlay.style.display = "none";
   roleSelectOverlay.style.display = "none";
-  caseSelectOverlay.style.display = "none";
+  if (caseSelectOverlay) caseSelectOverlay.style.display = "none";
 
   if (which === "howto") {
     howToOverlay.style.display = "block";
@@ -268,7 +269,7 @@ function openOverlay(which) {
     creditsOverlay.style.display = "block";
   } else if (which === "roles") {
     roleSelectOverlay.style.display = "block";
-  } else if (which === "cases") {
+  } else if (which === "cases" && caseSelectOverlay) {
     caseSelectOverlay.style.display = "block";
   }
 }
@@ -278,7 +279,7 @@ function closeOverlay() {
   howToOverlay.style.display = "none";
   creditsOverlay.style.display = "none";
   roleSelectOverlay.style.display = "none";
-  caseSelectOverlay.style.display = "none";
+  if (caseSelectOverlay) caseSelectOverlay.style.display = "none";
 }
 
 // Overlay butonları
@@ -293,7 +294,9 @@ creditsBtn.addEventListener("click", function () {
 overlayCloseBtn1.addEventListener("click", closeOverlay);
 overlayCloseBtn2.addEventListener("click", closeOverlay);
 roleOverlayCloseBtn.addEventListener("click", closeOverlay);
-caseOverlayCloseBtn.addEventListener("click", closeOverlay);
+if (caseOverlayCloseBtn) {
+  caseOverlayCloseBtn.addEventListener("click", closeOverlay);
+}
 
 overlayBackdrop.addEventListener("click", function (e) {
   if (e.target === overlayBackdrop) closeOverlay();
@@ -563,7 +566,7 @@ socket.on("playersUpdate", function (data) {
     lobbyReadyBtn.textContent = myLobbyReady ? "Hazır değilim" : "Hazırım";
     updateMyRoleInfo();
 
-    // ⭐ host isen Oyunu Başlat butonu görünsün
+    // host isen Oyunu Başlat butonu görünsün
     if (me.isHost) {
       startGameBtn.style.display = "inline-flex";
     } else {
@@ -598,7 +601,7 @@ socket.on("playersUpdate", function (data) {
       ? '<span class="host-label">HOST</span>'
       : '';
 
-    // ⭐ Kick link (sadece host görür ve kendine değil)
+    // Kick link (sadece host görür ve kendine değil)
     var kickHtml = "";
     if (me && me.isHost && p.id !== myId) {
       kickHtml =
@@ -621,7 +624,7 @@ socket.on("playersUpdate", function (data) {
 
   playersList.innerHTML = listHtml || "Henüz kimse yok.";
 
-  // ⭐ Kick linklerine tıklama
+  // Kick linklerine tıklama
   if (me && me.isHost) {
     var kickLinks = playersList.querySelectorAll(".kick-link");
     kickLinks.forEach(function (el) {
@@ -636,57 +639,6 @@ socket.on("playersUpdate", function (data) {
   }
 });
 
-
-  
-
-  if (me) {
-    myRole = me.role || null;
-    myLobbyReady = !!me.lobbyReady;
-    lobbyReadyBtn.textContent = myLobbyReady ? "Hazır değilim" : "Hazırım";
-    updateMyRoleInfo();
-  }
-
-  // Host ben miyim? Butonu güncelle
-  if (hostId && hostId === myId) {
-    startGameBtn.style.display = "inline-flex";
-  } else {
-    startGameBtn.style.display = "none";
-  }
-
-  var listHtml = "";
-  for (var j = 0; j < players.length; j++) {
-    var p = players[j];
-
-    var roleLabel;
-    if (p.role === "dedektif") roleLabel = "Baş Dedektif";
-    else if (p.role === "polis") roleLabel = "Polis";
-    else roleLabel = "Rol seçilmedi";
-
-    var readyHtml = "";
-    if (currentPhase === 0) {
-      // Lobby hazır durumu
-      readyHtml = p.lobbyReady
-        ? '<span class="tag ready">Hazır</span>'
-        : '<span class="tag">Hazır değil</span>';
-    } else {
-      // Faz hazır durumu
-      readyHtml = p.readyPhase > 0
-        ? '<span class="tag ready">Hazır</span>'
-        : '<span class="tag">Hazır değil</span>';
-    }
-
-    var hostHtml = "";
-    if (hostId && p.id === hostId) {
-      hostHtml = '<span class="tag host">HOST</span>';
-    }
-
-    listHtml +=
-      p.name + " (" + roleLabel + ") " + hostHtml + " " + readyHtml + "<br/>";
-  }
-
-  playersList.innerHTML = listHtml || "Henüz kimse yok.";
-});
-
 socket.on("lobbyMessage", function (msg) {
   showLobbyInfo(msg);
   // aynı mesajı sistem chat'e de düşürelim
@@ -697,6 +649,7 @@ socket.on("lobbyMessage", function (msg) {
     isSystem: true
   });
 });
+
 socket.on("kicked", function (data) {
   var reason = (data && data.reason) || "Host seni odadan attı.";
   alert(reason);
