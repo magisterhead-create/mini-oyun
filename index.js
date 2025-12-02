@@ -170,6 +170,65 @@ function sendSystemMessage(roomCode, text) {
 io.on("connection", (socket) => {
   console.log("Bir kullanıcı bağlandı:", socket.id);
   socket.emit("welcome", { id: socket.id });
+    // Host oyuncu atma (kick)
+  socket.on("kickPlayer", ({ targetId }) => {
+    const roomCode = socket.data?.roomCode;
+    if (!roomCode || !rooms[roomCode]) return;
+
+    const room = rooms[roomCode];
+
+    // Sadece host kullanabilsin
+    if (socket.id !== room.hostId) return;
+
+    // Hedef oyuncu mevcut mu?
+    const target = room.players[targetId];
+    if (!target) return;
+
+    // Host kendini atamasın
+    if (targetId === room.hostId) return;
+
+    const targetName = target.name || "Bir oyuncu";
+
+    // Odanın içinden çıkar
+    delete room.players[targetId];
+
+    const targetSocket = io.sockets.sockets.get(targetId);
+    if (targetSocket) {
+      targetSocket.leave(roomCode);
+      targetSocket.data.roomCode = null;
+      targetSocket.emit("kicked", {
+        reason: "Host seni odadan attı."
+      });
+    }
+
+    if (Object.keys(room.players).length === 0) {
+      // Oda boş kaldıysa sil
+      delete rooms[roomCode];
+    } else {
+      // Host hala duruyor, ama oyun resetlensin
+      room.currentPhase = 0;
+      Object.values(room.players).forEach((p) => {
+        p.readyPhase = 0;
+        p.lobbyReady = false;
+        p.answer = null;
+      });
+
+      io.to(roomCode).emit("playersUpdate", {
+        players: getPublicPlayers(roomCode)
+      });
+      io.to(roomCode).emit(
+        "lobbyMessage",
+        `${targetName} odadan atıldı. Oyun resetlendi.`
+      );
+      sendSystemMessage(
+        roomCode,
+        `${targetName} host tarafından odadan atıldı.`
+      );
+    }
+
+    broadcastRoomList();
+  });
+
 
   // basit ping altyapısı (client burada RTT ölçebilir)
   socket.on("pingCheck", (payload) => {
