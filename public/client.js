@@ -547,17 +547,95 @@ socket.on("roleError", function (msg) {
   roleError.textContent = msg;
 });
 
-socket.on("playersUpdate", function (data) {
-  var players = data.players || [];
-  var hostId = data.hostId || null;
-
+socket.on("playersUpdate", function (data) {socket.on("playersUpdate", function (data) {
   // Kendi rol ve hazır durumumu güncelle
   var me = null;
-  for (var i = 0; i < players.length; i++) {
-    if (players[i].id === myId) {
-      me = players[i];
+  for (var i = 0; i < data.players.length; i++) {
+    if (data.players[i].id === myId) {
+      me = data.players[i];
       break;
     }
+  }
+
+  if (me) {
+    myRole = me.role || null;
+    myLobbyReady = !!me.lobbyReady;
+    lobbyReadyBtn.textContent = myLobbyReady ? "Hazır değilim" : "Hazırım";
+    updateMyRoleInfo();
+
+    // ⭐ host isen Oyunu Başlat butonu görünsün
+    if (me.isHost) {
+      startGameBtn.style.display = "inline-flex";
+    } else {
+      startGameBtn.style.display = "none";
+    }
+  }
+
+  var listHtml = "";
+  for (var j = 0; j < data.players.length; j++) {
+    var p = data.players[j];
+
+    var roleLabel;
+    if (p.role === "dedektif") roleLabel = "Baş Dedektif";
+    else if (p.role === "polis") roleLabel = "Polis";
+    else roleLabel = "Rol seçilmedi";
+
+    var readyHtml = "";
+    if (currentPhase === 0) {
+      // Lobby hazır durumu
+      readyHtml = p.lobbyReady
+        ? '<span class="tag ready">Hazır</span>'
+        : '<span class="tag">Hazır değil</span>';
+    } else {
+      // Faz hazır durumu
+      readyHtml = p.readyPhase > 0
+        ? '<span class="tag ready">Hazır</span>'
+        : '<span class="tag">Hazır değil</span>';
+    }
+
+    // HOST etiketi
+    var hostHtml = p.isHost
+      ? '<span class="host-label">HOST</span>'
+      : '';
+
+    // ⭐ Kick link (sadece host görür ve kendine değil)
+    var kickHtml = "";
+    if (me && me.isHost && p.id !== myId) {
+      kickHtml =
+        ' <span class="kick-link" data-kick-id="' +
+        p.id +
+        '">Kick</span>';
+    }
+
+    listHtml +=
+      p.name +
+      " (" +
+      roleLabel +
+      ") " +
+      hostHtml +
+      " " +
+      readyHtml +
+      kickHtml +
+      "<br/>";
+  }
+
+  playersList.innerHTML = listHtml || "Henüz kimse yok.";
+
+  // ⭐ Kick linklerine tıklama
+  if (me && me.isHost) {
+    var kickLinks = playersList.querySelectorAll(".kick-link");
+    kickLinks.forEach(function (el) {
+      el.addEventListener("click", function () {
+        var targetId = this.getAttribute("data-kick-id");
+        if (!targetId) return;
+        var sure = window.confirm("Bu oyuncuyu odadan atmak istediğine emin misin?");
+        if (!sure) return;
+        socket.emit("kickPlayer", { targetId: targetId });
+      });
+    });
+  }
+});
+
   }
 
   if (me) {
@@ -617,6 +695,11 @@ socket.on("lobbyMessage", function (msg) {
     time: Date.now(),
     isSystem: true
   });
+});
+socket.on("kicked", function (data) {
+  var reason = (data && data.reason) || "Host seni odadan attı.";
+  alert(reason);
+  resetUIToMenu();
 });
 
 socket.on("gameStarting", function () {
