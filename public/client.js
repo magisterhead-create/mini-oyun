@@ -1,5 +1,12 @@
 const socket = io();
 
+// Her tarayıcı için kalıcı bir cihaz ID'si
+let deviceId = localStorage.getItem("bdp_device_id");
+if (!deviceId) {
+  deviceId = "dev_" + Math.random().toString(36).substring(2, 11);
+  localStorage.setItem("bdp_device_id", deviceId);
+}
+
 // Menü
 const menuSection = document.getElementById("menuSection");
 const hostBtn = document.getElementById("hostBtn");
@@ -366,7 +373,8 @@ connectBtn.addEventListener("click", function () {
     socket.emit("createRoom", {
       name: name,
       roomName: roomName,
-      password: roomPassword
+      password: roomPassword,
+      deviceId: deviceId
     });
   } else {
     if (!roomCode) {
@@ -374,7 +382,7 @@ connectBtn.addEventListener("click", function () {
       joinError.textContent = "Odaya katılmak için oda kodu girmelisin.";
       return;
     }
-    socket.emit("joinRoom", { name: name, roomCode: roomCode });
+    socket.emit("joinRoom", { name: name, roomCode: roomCode,  deviceId: deviceId });
   }
 });
 
@@ -751,7 +759,7 @@ socket.on("roomList", function (data) {
           joinError.textContent = "Önce bir isim girin, sonra odaya katılabilirsiniz.";
           return;
         }
-        socket.emit("joinRoom", { name: name, roomCode: code });
+        socket.emit("joinRoom", { name: name, roomCode: code, deviceId: deviceId });
       } else {
         openPasswordPromptForRoom(code);
       }
