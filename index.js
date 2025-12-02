@@ -153,7 +153,7 @@ io.on("connection", (socket) => {
   socket.emit("welcome", { id: socket.id });
 
   // Oda kurma
-  socket.on("createRoom", ({ name, roomName, password }) => {
+  socket.on("createRoom", ({ name, roomName, password, deviceId }) => {
     const roomCode = generateRoomCode();
 
     rooms[roomCode] = {
@@ -167,6 +167,7 @@ io.on("connection", (socket) => {
     };
 
     rooms[roomCode].players[socket.id] = {
+      deviceId: deviceId || null,
       id: socket.id,
       name: name || "Anonim",
       role: null,
@@ -194,7 +195,7 @@ io.on("connection", (socket) => {
   });
 
   // Odaya katılma
-  socket.on("joinRoom", ({ name, roomCode, password }) => {
+  socket.on("joinRoom", ({ name, roomCode, password, deviceId }) => {
     roomCode = (roomCode || "").toUpperCase();
     const room = rooms[roomCode];
 
@@ -208,6 +209,17 @@ io.on("connection", (socket) => {
       socket.emit("joinError", "Oda dolu.");
       return;
     }
+    if (deviceId) {
+  const alreadyInRoom = Object.values(room.players).some(
+    (p) => p.deviceId && p.deviceId === deviceId
+  );
+  if (alreadyInRoom) {
+    socket.emit(
+      "joinError",
+      "Bu tarayıcı zaten bu odaya bağlı. Aynı odada birden fazla sekme kullanamazsın."
+    );
+    return;
+  }
 
     if (room.password) {
       if (!password) {
@@ -222,6 +234,7 @@ io.on("connection", (socket) => {
 
     room.players[socket.id] = {
       id: socket.id,
+      deviceId: deviceId || null,
       name: name || "Anonim",
       role: null,
       readyPhase: 0,
