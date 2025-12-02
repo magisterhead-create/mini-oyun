@@ -139,9 +139,6 @@ function getPublicRoomList() {
     };
   });
 
-  // İstersen dolu odaları filtreleyebilirsin
-  // .filter(r => r.currentPlayers < r.maxPlayers);
-
   // Önce lobbydekiler, sonra eski/yeniler
   list.sort((a, b) => {
     if (a.status !== b.status) {
@@ -242,6 +239,7 @@ io.on("connection", (socket) => {
     socket.emit("joinSuccess", { role: null, roomCode, isHost: true });
     io.to(roomCode).emit("playersUpdate", {
       players: getPublicPlayers(roomCode),
+      hostId: rooms[roomCode].hostId,
     });
 
     sendSystemMessage(roomCode, `${name || "Bir oyuncu"} odayı oluşturdu.`);
@@ -288,9 +286,10 @@ io.on("connection", (socket) => {
     socket.join(roomCode);
     socket.data.roomCode = roomCode;
 
-    socket.emit("joinSuccess", { role: null, roomCode, isHost: false });
+    socket.emit("joinSuccess", { role: null, roomCode, isHost: socket.id === room.hostId });
     io.to(roomCode).emit("playersUpdate", {
       players: getPublicPlayers(roomCode),
+      hostId: room.hostId,
     });
 
     io.to(roomCode).emit(
@@ -313,6 +312,7 @@ io.on("connection", (socket) => {
     room.players[socket.id].lobbyReady = !!ready;
     io.to(roomCode).emit("playersUpdate", {
       players: getPublicPlayers(roomCode),
+      hostId: room.hostId,
     });
   });
 
@@ -340,6 +340,7 @@ io.on("connection", (socket) => {
     room.players[socket.id].role = role;
     io.to(roomCode).emit("playersUpdate", {
       players: getPublicPlayers(roomCode),
+      hostId: room.hostId,
     });
   });
 
@@ -407,6 +408,7 @@ io.on("connection", (socket) => {
     room.players[socket.id].readyPhase = phase;
     io.to(roomCode).emit("playersUpdate", {
       players: getPublicPlayers(roomCode),
+      hostId: room.hostId,
     });
 
     if (phase === room.currentPhase && allPlayersReadyForPhase(roomCode, phase)) {
@@ -461,6 +463,7 @@ io.on("connection", (socket) => {
     const room = rooms[roomCode];
     const player = room.players[socket.id];
     const playerName = player?.name || "Bir oyuncu";
+    const wasHost = room.hostId === socket.id;
 
     delete room.players[socket.id];
     socket.leave(roomCode);
@@ -475,14 +478,33 @@ io.on("connection", (socket) => {
         p.lobbyReady = false;
         p.answer = null;
       });
+
+      // Eğer host ayrıldıysa yeni host olarak ilk oyuncuyu ata
+      if (wasHost) {
+        const remainingIds = Object.keys(room.players);
+        if (remainingIds.length > 0) {
+          room.hostId = remainingIds[0];
+          const newHostName = room.players[room.hostId]?.name || "Yeni host";
+          sendSystemMessage(
+            roomCode,
+            `${playerName} odadan ayrıldı. Yeni host: ${newHostName}. Oyun resetlendi.`
+          );
+        }
+      } else {
+        sendSystemMessage(
+          roomCode,
+          `${playerName} odadan ayrıldı. Oyun resetlendi.`
+        );
+      }
+
       io.to(roomCode).emit("playersUpdate", {
         players: getPublicPlayers(roomCode),
+        hostId: room.hostId,
       });
       io.to(roomCode).emit(
         "lobbyMessage",
         "Bir oyuncu lobiden ayrıldı. Oyun resetlendi."
       );
-      sendSystemMessage(roomCode, `${playerName} odadan ayrıldı. Oyun resetlendi.`);
     }
 
     broadcastRoomList();
@@ -497,6 +519,7 @@ io.on("connection", (socket) => {
     const room = rooms[roomCode];
     const player = room.players[socket.id];
     const playerName = player?.name || "Bir oyuncu";
+    const wasHost = room.hostId === socket.id;
 
     delete room.players[socket.id];
 
@@ -509,14 +532,32 @@ io.on("connection", (socket) => {
         p.lobbyReady = false;
         p.answer = null;
       });
+
+      if (wasHost) {
+        const remainingIds = Object.keys(room.players);
+        if (remainingIds.length > 0) {
+          room.hostId = remainingIds[0];
+          const newHostName = room.players[room.hostId]?.name || "Yeni host";
+          sendSystemMessage(
+            roomCode,
+            `${playerName} bağlantıyı kaybetti. Yeni host: ${newHostName}. Oyun resetlendi.`
+          );
+        }
+      } else {
+        sendSystemMessage(
+          roomCode,
+          `${playerName} bağlantıyı kaybetti. Oyun resetlendi.`
+        );
+      }
+
       io.to(roomCode).emit("playersUpdate", {
         players: getPublicPlayers(roomCode),
+        hostId: room.hostId,
       });
       io.to(roomCode).emit(
         "lobbyMessage",
         "Bir oyuncu ayrıldı. Oyun resetlendi."
       );
-      sendSystemMessage(roomCode, `${playerName} bağlantıyı kaybetti. Oyun resetlendi.`);
     }
 
     broadcastRoomList();
