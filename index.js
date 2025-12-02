@@ -220,6 +220,7 @@ io.on("connection", (socket) => {
     );
     return;
   }
+}
 
     if (room.password) {
       if (!password) {
