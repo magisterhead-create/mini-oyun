@@ -248,6 +248,17 @@ button:disabled {
   background: var(--success);
   color: #ecfdf5;
 }
+.kick-link {
+  font-size: 11px;
+  color: #fca5a5;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.kick-link:hover {
+  text-decoration: underline;
+  color: #fecaca;
+}
 /* Host etiketi */
 .host-label {
   display: inline-block;
