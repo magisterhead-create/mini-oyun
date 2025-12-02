@@ -240,6 +240,7 @@ function resetUIToMenu() {
   lobbyReadyBtn.disabled = false;
   lobbyReadyBtn.textContent = "Hazırım";
   startGameBtn.disabled = false;
+  startGameBtn.style.display = "none";
 
   // case butonu varsayılan haline dönsün
   selectCaseBtn.textContent = "Default Case";
@@ -547,11 +548,14 @@ socket.on("roleError", function (msg) {
 });
 
 socket.on("playersUpdate", function (data) {
+  var players = data.players || [];
+  var hostId = data.hostId || null;
+
   // Kendi rol ve hazır durumumu güncelle
   var me = null;
-  for (var i = 0; i < data.players.length; i++) {
-    if (data.players[i].id === myId) {
-      me = data.players[i];
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].id === myId) {
+      me = players[i];
       break;
     }
   }
@@ -563,9 +567,16 @@ socket.on("playersUpdate", function (data) {
     updateMyRoleInfo();
   }
 
+  // Host ben miyim? Butonu güncelle
+  if (hostId && hostId === myId) {
+    startGameBtn.style.display = "inline-flex";
+  } else {
+    startGameBtn.style.display = "none";
+  }
+
   var listHtml = "";
-  for (var j = 0; j < data.players.length; j++) {
-    var p = data.players[j];
+  for (var j = 0; j < players.length; j++) {
+    var p = players[j];
 
     var roleLabel;
     if (p.role === "dedektif") roleLabel = "Baş Dedektif";
@@ -585,8 +596,13 @@ socket.on("playersUpdate", function (data) {
         : '<span class="tag">Hazır değil</span>';
     }
 
+    var hostHtml = "";
+    if (hostId && p.id === hostId) {
+      hostHtml = '<span class="tag host">HOST</span>';
+    }
+
     listHtml +=
-      p.name + " (" + roleLabel + ") " + readyHtml + "<br/>";
+      p.name + " (" + roleLabel + ") " + hostHtml + " " + readyHtml + "<br/>";
   }
 
   playersList.innerHTML = listHtml || "Henüz kimse yok.";
@@ -594,7 +610,7 @@ socket.on("playersUpdate", function (data) {
 
 socket.on("lobbyMessage", function (msg) {
   showLobbyInfo(msg);
-  // Dilersen burada da sistem chat'e düşürebilirsin:
+  // aynı mesajı sistem chat'e de düşürelim
   addChatMessage({
     from: "Sistem",
     text: msg,
@@ -611,8 +627,6 @@ socket.on("caseSelected", function (data) {
   // seçilen vakayı lobide göster
   showLobbyInfo("Seçilen vaka: " + data.title);
   selectCaseBtn.textContent = "Vaka: " + data.title;
-  // Sistem chat'te de olsun (sunucu zaten chatMessage atıyor ama
-  // istersen buradaki satırı silebilirsin, ben şimdilik ikilemedim)
 });
 
 socket.on("phaseData", function (data) {
