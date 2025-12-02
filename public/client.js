@@ -637,7 +637,7 @@ socket.on("playersUpdate", function (data) {
 });
 
 
-  }
+  
 
   if (me) {
     myRole = me.role || null;
