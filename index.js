@@ -64,7 +64,9 @@ function getPublicPlayers(roomCode) {
     role: p.role,
     readyPhase: p.readyPhase,
     lobbyReady: p.lobbyReady,
-    isHost: p.id === room.hostId // ⭐ host bilgisi
+    isHost: p.id === room.hostId,
+    inVoice: !!p.inVoice,
+    listenOnly: !!p.listenOnly
   }));
 }
 
@@ -167,14 +169,17 @@ io.on("connection", (socket) => {
     };
 
     rooms[roomCode].players[socket.id] = {
-      deviceId: deviceId || null,
-      id: socket.id,
-      name: name || "Anonim",
-      role: null,
-      readyPhase: 0,
-      lobbyReady: false,
-      answer: null
-    };
+  deviceId: deviceId || null,
+  id: socket.id,
+  name: name || "Anonim",
+  role: null,
+  readyPhase: 0,
+  lobbyReady: false,
+  answer: null,
+  inVoice: false,
+  listenOnly: false
+};
+
 
     socket.join(roomCode);
     socket.data.roomCode = roomCode;
@@ -237,14 +242,17 @@ io.on("connection", (socket) => {
     }
 
     room.players[socket.id] = {
-      id: socket.id,
-      deviceId: deviceId || null,
-      name: name || "Anonim",
-      role: null,
-      readyPhase: 0,
-      lobbyReady: false,
-      answer: null
-    };
+  id: socket.id,
+  deviceId: deviceId || null,
+  name: name || "Anonim",
+  role: null,
+  readyPhase: 0,
+  lobbyReady: false,
+  answer: null,
+  inVoice: false,
+  listenOnly: false
+};
+
 
     socket.join(roomCode);
     socket.data.roomCode = roomCode;
@@ -497,33 +505,64 @@ io.on("connection", (socket) => {
   // ---------- VOICE / WEBRTC SIGNALING ---------- //
 
   // Ses kanalına katıl
-  socket.on("joinVoice", () => {
-    const roomCode = socket.data?.roomCode;
-    if (!roomCode || !rooms[roomCode]) return;
+  socket.on("joinVoice", ({ listenOnly } = {}) => {
+  const roomCode = socket.data?.roomCode;
+  if (!roomCode || !rooms[roomCode]) return;
 
-    const voiceRoom = roomCode + "_voice";
-    socket.join(voiceRoom);
+  const room = rooms[roomCode];
+  const player = room.players[socket.id];
+  if (!player) return;
 
-    const roomSet = io.sockets.adapter.rooms.get(voiceRoom) || new Set();
+  const voiceRoom = roomCode + "_voice";
+  socket.join(voiceRoom);
 
-    roomSet.forEach((peerId) => {
-      if (peerId === socket.id) return;
-      // Yeni gelen için mevcut peer'ler
-      socket.emit("voiceNewPeer", { peerId, polite: true });
-      // Mevcut peer için yeni gelen
-      io.to(peerId).emit("voiceNewPeer", { peerId: socket.id, polite: false });
-    });
+  // voice durumunu güncelle
+  player.inVoice = true;
+  player.listenOnly = !!listenOnly;
+
+  const roomSet = io.sockets.adapter.rooms.get(voiceRoom) || new Set();
+
+  roomSet.forEach((peerId) => {
+    if (peerId === socket.id) return;
+    socket.emit("voiceNewPeer", { peerId, polite: true });
+    io.to(peerId).emit("voiceNewPeer", { peerId: socket.id, polite: false });
   });
+
+  // Oyuncu listesini güncelle (🎧 ikonları için)
+  io.to(roomCode).emit("playersUpdate", {
+    players: getPublicPlayers(roomCode)
+  });
+
+  // Chat'e sistem mesajı
+  const nick = player.name || "Bir oyuncu";
+  const modeText = listenOnly ? " (sadece dinleyici olarak)" : "";
+  sendSystemMessage(roomCode, `${nick} sesli sohbete katıldı${modeText}.`);
+});
 
   // Ses kanalından ayrıl
   socket.on("leaveVoice", () => {
-    const roomCode = socket.data?.roomCode;
-    if (!roomCode || !rooms[roomCode]) return;
-    const voiceRoom = roomCode + "_voice";
+  const roomCode = socket.data?.roomCode;
+  if (!roomCode || !rooms[roomCode]) return;
 
-    socket.leave(voiceRoom);
-    io.to(voiceRoom).emit("voicePeerLeft", { peerId: socket.id });
-  });
+  const room = rooms[roomCode];
+  const player = room.players[socket.id];
+  const voiceRoom = roomCode + "_voice";
+
+  socket.leave(voiceRoom);
+  io.to(voiceRoom).emit("voicePeerLeft", { peerId: socket.id });
+
+  if (player) {
+    player.inVoice = false;
+    player.listenOnly = false;
+
+    io.to(roomCode).emit("playersUpdate", {
+      players: getPublicPlayers(roomCode)
+    });
+
+    const nick = player.name || "Bir oyuncu";
+    sendSystemMessage(roomCode, `${nick} sesli sohbetten ayrıldı.`);
+  }
+});
 
   // WebRTC offer/answer/candidate relay
   socket.on("voiceOffer", ({ to, description }) => {
