@@ -797,7 +797,7 @@ socket.on("playersUpdate", (data) => {
         p.id +
         '">Kick</span>';
     }
-
+const voiceHtml = p.inVoice ? " 🎧" : "";
     listHtml +=
       p.name +
       " (" +
