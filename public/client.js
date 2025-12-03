@@ -7,10 +7,7 @@ if (!deviceId) {
   localStorage.setItem("bdp_device_id", deviceId);
 }
 // Sayfa açıldığında localStorage'daki ismi yükle
-const savedName = localStorage.getItem("bdp_name");
-if (savedName) {
-  nameInput.value = savedName;
-}
+
 // Menü
 const menuSection = document.getElementById("menuSection");
 const hostBtn = document.getElementById("hostBtn");
@@ -37,6 +34,10 @@ const beginInvestigationBtn = document.getElementById("beginInvestigationBtn");
 // Bağlantı ekranı
 const connectionSection = document.getElementById("connectionSection");
 const nameInput = document.getElementById("nameInput");
+const savedName = localStorage.getItem("bdp_name");
+if (savedName) {
+  nameInput.value = savedName;
+}
 const roomCodeGroup = document.getElementById("roomCodeGroup");
 const roomCodeInput = document.getElementById("roomCodeInput");
 const connectBtn = document.getElementById("connectBtn");
