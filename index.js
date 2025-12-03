@@ -28,7 +28,7 @@ const cases = {
 
 // --------- ODA YAPISI --------- //
 
-const MAX_PLAYERS = 4; // istersen tekrar 2 yapabilirsin
+const MAX_PLAYERS = 4;
 
 // rooms: roomCode -> {
 //   hostId, roomName, password, currentPhase, currentCaseId, puzzle,
@@ -209,19 +209,22 @@ io.on("connection", (socket) => {
       socket.emit("joinError", "Oda dolu.");
       return;
     }
-    if (deviceId) {
-  const alreadyInRoom = Object.values(room.players).some(
-    (p) => p.deviceId && p.deviceId === deviceId
-  );
-  if (alreadyInRoom) {
-    socket.emit(
-      "joinError",
-      "Bu tarayıcı zaten bu odaya bağlı. Aynı odada birden fazla sekme kullanamazsın."
-    );
-    return;
-  }
-}
 
+    // Aynı odada aynı cihazdan ikinci sekmeyi engelle
+    if (deviceId) {
+      const alreadyInRoom = Object.values(room.players).some(
+        (p) => p.deviceId && p.deviceId === deviceId
+      );
+      if (alreadyInRoom) {
+        socket.emit(
+          "joinError",
+          "Bu tarayıcı zaten bu odaya bağlı. Aynı odada birden fazla sekme kullanamazsın."
+        );
+        return;
+      }
+    }
+
+    // Şifre kontrolü
     if (room.password) {
       if (!password) {
         socket.emit("joinError", "Bu odaya katılmak için şifre girmelisin.");
@@ -446,7 +449,6 @@ io.on("connection", (socket) => {
     // Sadece host kullanabilsin
     if (socket.id !== room.hostId) return;
 
-    // Hedef oyuncu mevcut mu?
     const target = room.players[targetId];
     if (!target) return;
 
@@ -492,6 +494,50 @@ io.on("connection", (socket) => {
     broadcastRoomList();
   });
 
+  // ---------- VOICE / WEBRTC SIGNALING ---------- //
+
+  // Ses kanalına katıl
+  socket.on("joinVoice", () => {
+    const roomCode = socket.data?.roomCode;
+    if (!roomCode || !rooms[roomCode]) return;
+
+    const voiceRoom = roomCode + "_voice";
+    socket.join(voiceRoom);
+
+    const roomSet = io.sockets.adapter.rooms.get(voiceRoom) || new Set();
+
+    roomSet.forEach((peerId) => {
+      if (peerId === socket.id) return;
+      // Yeni gelen için mevcut peer'ler
+      socket.emit("voiceNewPeer", { peerId, polite: true });
+      // Mevcut peer için yeni gelen
+      io.to(peerId).emit("voiceNewPeer", { peerId: socket.id, polite: false });
+    });
+  });
+
+  // Ses kanalından ayrıl
+  socket.on("leaveVoice", () => {
+    const roomCode = socket.data?.roomCode;
+    if (!roomCode || !rooms[roomCode]) return;
+    const voiceRoom = roomCode + "_voice";
+
+    socket.leave(voiceRoom);
+    io.to(voiceRoom).emit("voicePeerLeft", { peerId: socket.id });
+  });
+
+  // WebRTC offer/answer/candidate relay
+  socket.on("voiceOffer", ({ to, description }) => {
+    io.to(to).emit("voiceOffer", { from: socket.id, description });
+  });
+
+  socket.on("voiceAnswer", ({ to, description }) => {
+    io.to(to).emit("voiceAnswer", { from: socket.id, description });
+  });
+
+  socket.on("voiceIceCandidate", ({ to, candidate }) => {
+    io.to(to).emit("voiceIceCandidate", { from: socket.id, candidate });
+  });
+
   // Odayı isteyerek terk etme (ana menüye dön)
   socket.on("leaveRoom", () => {
     const roomCode = socket.data?.roomCode;
@@ -505,6 +551,11 @@ io.on("connection", (socket) => {
     delete room.players[socket.id];
     socket.leave(roomCode);
     socket.data.roomCode = null;
+
+    // Voice odasından da çıkar
+    const voiceRoom = roomCode + "_voice";
+    socket.leave(voiceRoom);
+    io.to(voiceRoom).emit("voicePeerLeft", { peerId: socket.id });
 
     if (Object.keys(room.players).length === 0) {
       delete rooms[roomCode];
@@ -556,10 +607,13 @@ io.on("connection", (socket) => {
 
     delete room.players[socket.id];
 
+    // Voice odasından da düşmüş kabul
+    const voiceRoom = roomCode + "_voice";
+    io.to(voiceRoom).emit("voicePeerLeft", { peerId: socket.id });
+
     if (Object.keys(room.players).length === 0) {
       delete rooms[roomCode];
     } else {
-      // host düştüyse yeni host ata
       if (wasHost) {
         const remainingIds = Object.keys(room.players);
         if (remainingIds.length > 0) {
