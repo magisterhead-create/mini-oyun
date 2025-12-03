@@ -233,7 +233,6 @@ function resetUIToMenu() {
   submitAnswerBtn.disabled = false;
   answerInput.disabled = false;
   answerInput.value = "";
-  nameInput.value = "";
   roomCodeInput.value = "";
 
   if (roomNameInput) roomNameInput.value = "";
