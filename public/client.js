@@ -6,7 +6,8 @@ if (!deviceId) {
   deviceId = "dev_" + Math.random().toString(36).substring(2, 11);
   localStorage.setItem("bdp_device_id", deviceId);
 }
-// Sayfa açıldığında localStorage'daki ismi yükle
+
+// --- DOM ELEMANLARI --- //
 
 // Menü
 const menuSection = document.getElementById("menuSection");
@@ -34,10 +35,6 @@ const beginInvestigationBtn = document.getElementById("beginInvestigationBtn");
 // Bağlantı ekranı
 const connectionSection = document.getElementById("connectionSection");
 const nameInput = document.getElementById("nameInput");
-const savedName = localStorage.getItem("bdp_name");
-if (savedName) {
-  nameInput.value = savedName;
-}
 const roomCodeGroup = document.getElementById("roomCodeGroup");
 const roomCodeInput = document.getElementById("roomCodeInput");
 const connectBtn = document.getElementById("connectBtn");
@@ -93,6 +90,19 @@ const chatMessages = document.getElementById("chatMessages");
 const chatInput = document.getElementById("chatInput");
 const chatSendBtn = document.getElementById("chatSendBtn");
 
+// Voice controls
+const joinVoiceBtn = document.getElementById("joinVoiceBtn");
+const muteToggleBtn = document.getElementById("muteToggleBtn");
+const leaveVoiceBtn = document.getElementById("leaveVoiceBtn");
+
+// Sayfa açıldığında kayıtlı nick'i yükle
+const savedName = localStorage.getItem("bdp_name");
+if (savedName && nameInput) {
+  nameInput.value = savedName;
+}
+
+// --- STATE --- //
+
 let myId = null;
 let myRole = null;
 let myRoomCode = null;
@@ -107,7 +117,12 @@ let selectedCaseId = "restaurant_murder";
 let lastPingMs = null;
 let pingIntervalId = null;
 
-// --- Yardımcı fonksiyonlar ---
+// Voice / WebRTC state
+let localAudioStream = null;
+let peers = {}; // peerId -> RTCPeerConnection
+let isMuted = false;
+
+// --- Yardımcı fonksiyonlar --- //
 
 function updateMyRoleInfo() {
   let text;
@@ -162,11 +177,11 @@ function addChatMessage(data) {
   line.className = "chat-message-line";
 
   if (data.isSystem) {
-    // Sistem mesajı
     line.classList.add("chat-message-system");
     const textSpan = document.createElement("span");
     textSpan.className = "chat-message-system-text";
     textSpan.textContent = data.text;
+
     line.appendChild(textSpan);
 
     if (data.time) {
@@ -233,6 +248,7 @@ function resetUIToMenu() {
   submitAnswerBtn.disabled = false;
   answerInput.disabled = false;
   answerInput.value = "";
+  // nameInput.value'ı temizlemiyoruz, localStorage'daki nick kalsın
   roomCodeInput.value = "";
 
   if (roomNameInput) roomNameInput.value = "";
@@ -253,26 +269,27 @@ function resetUIToMenu() {
   startGameBtn.style.display = "none";
 
   // case butonu varsayılan haline dönsün
-  if (selectCaseBtn) {
-    selectCaseBtn.textContent = "Default Case";
-  }
+  selectCaseBtn.textContent = "Default Case";
   selectedCaseId = "restaurant_murder";
 
-  // join ekranından çıkınca ping ve room list döngülerini kes
+  // ping & room list reset
   stopPingLoop();
   if (roomListContainer) {
     roomListContainer.innerHTML = "Şu anda açık oda yok.";
   }
+
+  // Voice temizle
+  cleanupVoice();
 }
 
-// --- Overlay logic ---
+// --- Overlay logic --- //
 
 function openOverlay(which) {
   overlayBackdrop.style.display = "flex";
   howToOverlay.style.display = "none";
   creditsOverlay.style.display = "none";
   roleSelectOverlay.style.display = "none";
-  if (caseSelectOverlay) caseSelectOverlay.style.display = "none";
+  caseSelectOverlay.style.display = "none";
 
   if (which === "howto") {
     howToOverlay.style.display = "block";
@@ -280,7 +297,7 @@ function openOverlay(which) {
     creditsOverlay.style.display = "block";
   } else if (which === "roles") {
     roleSelectOverlay.style.display = "block";
-  } else if (which === "cases" && caseSelectOverlay) {
+  } else if (which === "cases") {
     caseSelectOverlay.style.display = "block";
   }
 }
@@ -290,31 +307,147 @@ function closeOverlay() {
   howToOverlay.style.display = "none";
   creditsOverlay.style.display = "none";
   roleSelectOverlay.style.display = "none";
-  if (caseSelectOverlay) caseSelectOverlay.style.display = "none";
+  caseSelectOverlay.style.display = "none";
 }
 
+// Room password prompt for private rooms
+function openPasswordPromptForRoom(code) {
+  const name = nameInput.value.trim();
+  if (!name) {
+    joinError.style.display = "block";
+    joinError.textContent = "Önce bir isim girin, sonra odaya katılabilirsiniz.";
+    return;
+  }
+  const pwd = window.prompt("Bu oda şifreli. Lütfen şifreyi girin:");
+  if (pwd === null) return;
+  socket.emit("joinRoom", {
+    name,
+    roomCode: code,
+    password: pwd,
+    deviceId
+  });
+}
+
+// Chat gönderme
+function sendChatMessage() {
+  if (!chatInput) return;
+  const text = chatInput.value.trim();
+  if (!text) return;
+  socket.emit("sendChat", { message: text });
+  chatInput.value = "";
+}
+
+// --- Voice / WebRTC Fonksiyonları --- //
+
+async function joinVoice() {
+  if (localAudioStream) return; // zaten içerde
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    localAudioStream = stream;
+
+    // UI güncelle
+    if (joinVoiceBtn) joinVoiceBtn.style.display = "none";
+    if (muteToggleBtn) {
+      muteToggleBtn.style.display = "inline-flex";
+      muteToggleBtn.textContent = "🔇 Mute";
+    }
+    if (leaveVoiceBtn) leaveVoiceBtn.style.display = "inline-flex";
+
+    // Sunucuya ses kanalına katıldığımı ilet
+    socket.emit("joinVoice");
+  } catch (err) {
+    console.error("Mikrofona erişilemedi:", err);
+    alert("Mikrofona erişilemedi. Tarayıcı izinlerini kontrol et.");
+  }
+}
+
+function toggleMute() {
+  if (!localAudioStream) return;
+  isMuted = !isMuted;
+  localAudioStream.getAudioTracks().forEach((track) => {
+    track.enabled = !isMuted;
+  });
+  if (muteToggleBtn) {
+    muteToggleBtn.textContent = isMuted ? "🔈 Unmute" : "🔇 Mute";
+  }
+}
+
+function cleanupVoice() {
+  if (localAudioStream) {
+    localAudioStream.getTracks().forEach((t) => t.stop());
+    localAudioStream = null;
+  }
+  Object.values(peers).forEach((pc) => pc.close());
+  peers = {};
+
+  if (joinVoiceBtn) joinVoiceBtn.style.display = "inline-flex";
+  if (muteToggleBtn) muteToggleBtn.style.display = "none";
+  if (leaveVoiceBtn) leaveVoiceBtn.style.display = "none";
+
+  // remote audio elementlerini temizle
+  const audios = document.querySelectorAll("[id^='audio_']");
+  audios.forEach((a) => a.remove());
+}
+
+function leaveVoice() {
+  cleanupVoice();
+  socket.emit("leaveVoice");
+}
+
+function createPeerConnection(peerId) {
+  const pc = new RTCPeerConnection({
+    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+  });
+
+  // Lokal ses akışı
+  if (localAudioStream) {
+    localAudioStream.getTracks().forEach((track) => {
+      pc.addTrack(track, localAudioStream);
+    });
+  }
+
+  pc.onicecandidate = (event) => {
+    if (event.candidate) {
+      socket.emit("voiceIceCandidate", {
+        to: peerId,
+        candidate: event.candidate
+      });
+    }
+  };
+
+  pc.ontrack = (event) => {
+    const remoteStream = event.streams[0];
+    let audioEl = document.getElementById("audio_" + peerId);
+    if (!audioEl) {
+      audioEl = document.createElement("audio");
+      audioEl.id = "audio_" + peerId;
+      audioEl.autoplay = true;
+      audioEl.playsInline = true;
+      document.body.appendChild(audioEl);
+    }
+    audioEl.srcObject = remoteStream;
+  };
+
+  return pc;
+}
+
+// --- EVENT LISTENERS --- //
+
 // Overlay butonları
-howToBtn.addEventListener("click", function () {
-  openOverlay("howto");
-});
-
-creditsBtn.addEventListener("click", function () {
-  openOverlay("credits");
-});
-
+howToBtn.addEventListener("click", () => openOverlay("howto"));
+creditsBtn.addEventListener("click", () => openOverlay("credits"));
 overlayCloseBtn1.addEventListener("click", closeOverlay);
 overlayCloseBtn2.addEventListener("click", closeOverlay);
 roleOverlayCloseBtn.addEventListener("click", closeOverlay);
-if (caseOverlayCloseBtn) {
-  caseOverlayCloseBtn.addEventListener("click", closeOverlay);
-}
+caseOverlayCloseBtn.addEventListener("click", closeOverlay);
 
-overlayBackdrop.addEventListener("click", function (e) {
+overlayBackdrop.addEventListener("click", (e) => {
   if (e.target === overlayBackdrop) closeOverlay();
 });
 
 // Settings toggle
-settingsBtn.addEventListener("click", function () {
+settingsBtn.addEventListener("click", () => {
   if (settingsPanel.style.display === "none") {
     settingsPanel.style.display = "block";
   } else {
@@ -322,41 +455,37 @@ settingsBtn.addEventListener("click", function () {
   }
 });
 
-// --- Menü butonları ---
-
-hostBtn.addEventListener("click", function () {
+// Menü butonları
+hostBtn.addEventListener("click", () => {
   mode = "host";
   menuSection.style.display = "none";
   connectionSection.style.display = "block";
-  roomCodeGroup.style.display = "none"; // host iken oda kodu girmeye gerek yok
+  roomCodeGroup.style.display = "none";
   if (hostExtraGroup) hostExtraGroup.style.display = "block";
   if (roomListPanel) roomListPanel.style.display = "none";
   stopPingLoop();
 });
 
-joinMenuBtn.addEventListener("click", function () {
+joinMenuBtn.addEventListener("click", () => {
   mode = "join";
   menuSection.style.display = "none";
   connectionSection.style.display = "block";
-  roomCodeGroup.style.display = "block"; // join iken oda kodu gerekli
+  roomCodeGroup.style.display = "block";
   if (hostExtraGroup) hostExtraGroup.style.display = "none";
   if (roomListPanel) roomListPanel.style.display = "block";
 
-  // oda listesi iste + ping loop başlat
   requestRoomList();
   startPingLoop();
 });
 
-backToMenuFromConnectBtn.addEventListener("click", function () {
+backToMenuFromConnectBtn.addEventListener("click", () => {
   resetUIToMenu();
 });
 
 // Bağlan / Devam et
-connectBtn.addEventListener("click", function () {
-  var name = nameInput.value.trim();
-  // İsmi kaydet
-localStorage.setItem("bdp_name", name);
-  var roomCode = roomCodeInput.value.trim().toUpperCase();
+connectBtn.addEventListener("click", () => {
+  const name = nameInput.value.trim();
+  const roomCode = roomCodeInput.value.trim().toUpperCase();
 
   joinError.style.display = "none";
   joinError.textContent = "";
@@ -373,14 +502,17 @@ localStorage.setItem("bdp_name", name);
     return;
   }
 
+  // Nick'i kaydet
+  localStorage.setItem("bdp_name", name);
+
   if (mode === "host") {
-    var roomName = roomNameInput ? roomNameInput.value.trim() : "";
-    var roomPassword = roomPasswordInput ? roomPasswordInput.value.trim() : "";
+    const roomName = roomNameInput ? roomNameInput.value.trim() : "";
+    const roomPassword = roomPasswordInput ? roomPasswordInput.value.trim() : "";
     socket.emit("createRoom", {
-      name: name,
-      roomName: roomName,
+      name,
+      roomName,
       password: roomPassword,
-      deviceId: deviceId
+      deviceId
     });
   } else {
     if (!roomCode) {
@@ -388,52 +520,56 @@ localStorage.setItem("bdp_name", name);
       joinError.textContent = "Odaya katılmak için oda kodu girmelisin.";
       return;
     }
-    socket.emit("joinRoom", { name: name, roomCode: roomCode,  deviceId: deviceId });
+    socket.emit("joinRoom", {
+      name,
+      roomCode,
+      deviceId
+    });
   }
 });
 
 // Lobby hazırım (toggle)
-lobbyReadyBtn.addEventListener("click", function () {
-  var newReady = !myLobbyReady;
+lobbyReadyBtn.addEventListener("click", () => {
+  const newReady = !myLobbyReady;
   socket.emit("lobbyReadyToggle", { ready: newReady });
 });
 
 // Rol seç ekranını aç
-openRoleSelectBtn.addEventListener("click", function () {
+openRoleSelectBtn.addEventListener("click", () => {
   roleError.style.display = "none";
   roleError.textContent = "";
   openOverlay("roles");
 });
 
 // Rol kartlarına tıklama
-var roleCards = document.querySelectorAll(".role-card");
-for (var i = 0; i < roleCards.length; i++) {
-  roleCards[i].addEventListener("click", function () {
-    var role = this.getAttribute("data-role");
+const roleCards = document.querySelectorAll(".role-card");
+roleCards.forEach((card) => {
+  card.addEventListener("click", function () {
+    const role = this.getAttribute("data-role");
     roleError.style.display = "none";
     roleError.textContent = "";
-    socket.emit("chooseRole", { role: role });
+    socket.emit("chooseRole", { role });
     closeOverlay();
   });
-}
+});
 
 // CASE kartları
-var caseCards = document.querySelectorAll(".case-card");
-for (var i2 = 0; i2 < caseCards.length; i2++) {
-  caseCards[i2].addEventListener("click", function () {
+const caseCards = document.querySelectorAll(".case-card");
+caseCards.forEach((card) => {
+  card.addEventListener("click", function () {
     selectedCaseId = this.getAttribute("data-case-id");
   });
-}
+});
 
 // Case seçimi - overlay aç
-selectCaseBtn.addEventListener("click", function () {
+selectCaseBtn.addEventListener("click", () => {
   roleError.style.display = "none";
   roleError.textContent = "";
   openOverlay("cases");
 });
 
 // Begin Investigation -> seçili case'i sunucuya gönder
-beginInvestigationBtn.addEventListener("click", function () {
+beginInvestigationBtn.addEventListener("click", () => {
   if (!myRoomCode) {
     showLobbyInfo("Önce bir odaya bağlı olmalısın.");
     return;
@@ -443,18 +579,18 @@ beginInvestigationBtn.addEventListener("click", function () {
 });
 
 // Oyunu başlat (sadece host)
-startGameBtn.addEventListener("click", function () {
+startGameBtn.addEventListener("click", () => {
   socket.emit("startGame");
 });
 
 // Ana menüye dön (lobiden)
-backToMenuBtn.addEventListener("click", function () {
+backToMenuBtn.addEventListener("click", () => {
   socket.emit("leaveRoom");
   resetUIToMenu();
 });
 
 // Faz hazır
-phaseReadyBtn.addEventListener("click", function () {
+phaseReadyBtn.addEventListener("click", () => {
   if (currentPhase >= 1 && currentPhase <= 3) {
     socket.emit("phaseReady", { phase: currentPhase });
     phaseReadyBtn.disabled = true;
@@ -464,8 +600,8 @@ phaseReadyBtn.addEventListener("click", function () {
 });
 
 // Cevap gönder
-submitAnswerBtn.addEventListener("click", function () {
-  var ans = answerInput.value.trim();
+submitAnswerBtn.addEventListener("click", () => {
+  const ans = answerInput.value.trim();
   if (!ans) {
     finalInfo.style.display = "block";
     finalInfo.textContent = "Önce bir cevap yazmalısın.";
@@ -479,22 +615,14 @@ submitAnswerBtn.addEventListener("click", function () {
 });
 
 // Chat gönder
-function sendChatMessage() {
-  if (!chatInput) return;
-  var text = chatInput.value.trim();
-  if (!text) return;
-  socket.emit("sendChat", { message: text });
-  chatInput.value = "";
-}
-
 if (chatSendBtn) {
-  chatSendBtn.addEventListener("click", function () {
+  chatSendBtn.addEventListener("click", () => {
     sendChatMessage();
   });
 }
 
 if (chatInput) {
-  chatInput.addEventListener("keydown", function (e) {
+  chatInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
       sendChatMessage();
@@ -502,38 +630,42 @@ if (chatInput) {
   });
 }
 
-// --- Room list & ping UI ---
-
+// Room list refresh
 if (refreshRoomsBtn) {
-  refreshRoomsBtn.addEventListener("click", function () {
+  refreshRoomsBtn.addEventListener("click", () => {
     requestRoomList();
   });
 }
 
-function openPasswordPromptForRoom(code) {
-  var name = nameInput.value.trim();
-  if (!name) {
-    joinError.style.display = "block";
-    joinError.textContent = "Önce bir isim girin, sonra odaya katılabilirsiniz.";
-    return;
-  }
-  var pwd = window.prompt("Bu oda şifreli. Lütfen şifreyi girin:");
-  if (pwd === null) return; // iptal
-  socket.emit("joinRoom", { name: name, roomCode: code, password: pwd });
+// Voice buttons
+if (joinVoiceBtn) {
+  joinVoiceBtn.addEventListener("click", () => {
+    joinVoice();
+  });
+}
+if (muteToggleBtn) {
+  muteToggleBtn.addEventListener("click", () => {
+    toggleMute();
+  });
+}
+if (leaveVoiceBtn) {
+  leaveVoiceBtn.addEventListener("click", () => {
+    leaveVoice();
+  });
 }
 
-// --- Sunucudan gelenler ---
+// --- Sunucudan gelenler --- //
 
-socket.on("welcome", function (data) {
+socket.on("welcome", (data) => {
   myId = data.id;
 });
 
-socket.on("roomCreated", function (payload) {
+socket.on("roomCreated", (payload) => {
   myRoomCode = payload.roomCode;
   roomCodeDisplay.textContent = myRoomCode;
 });
 
-socket.on("joinSuccess", function (data) {
+socket.on("joinSuccess", (data) => {
   connectionSection.style.display = "none";
   lobbySection.style.display = "block";
   myRoomCode = data.roomCode || myRoomCode;
@@ -554,22 +686,24 @@ socket.on("joinSuccess", function (data) {
   }
 });
 
-socket.on("joinError", function (msg) {
+socket.on("joinError", (msg) => {
   joinError.style.display = "block";
   joinError.textContent = msg;
 });
 
-socket.on("roleError", function (msg) {
+socket.on("roleError", (msg) => {
   roleError.style.display = "block";
   roleError.textContent = msg;
 });
 
-socket.on("playersUpdate", function (data) {
+socket.on("playersUpdate", (data) => {
+  const players = data.players || [];
+
   // Kendi rol ve hazır durumumu güncelle
-  var me = null;
-  for (var i = 0; i < data.players.length; i++) {
-    if (data.players[i].id === myId) {
-      me = data.players[i];
+  let me = null;
+  for (let i = 0; i < players.length; i++) {
+    if (players[i].id === myId) {
+      me = players[i];
       break;
     }
   }
@@ -580,7 +714,7 @@ socket.on("playersUpdate", function (data) {
     lobbyReadyBtn.textContent = myLobbyReady ? "Hazır değilim" : "Hazırım";
     updateMyRoleInfo();
 
-    // host isen Oyunu Başlat butonu görünsün
+    // Host isem Oyunu Başlat butonu görünsün
     if (me.isHost) {
       startGameBtn.style.display = "inline-flex";
     } else {
@@ -588,35 +722,32 @@ socket.on("playersUpdate", function (data) {
     }
   }
 
-  var listHtml = "";
-  for (var j = 0; j < data.players.length; j++) {
-    var p = data.players[j];
+  let listHtml = "";
+  for (let j = 0; j < players.length; j++) {
+    const p = players[j];
 
-    var roleLabel;
+    let roleLabel;
     if (p.role === "dedektif") roleLabel = "Baş Dedektif";
     else if (p.role === "polis") roleLabel = "Polis";
     else roleLabel = "Rol seçilmedi";
 
-    var readyHtml = "";
+    let readyHtml = "";
     if (currentPhase === 0) {
-      // Lobby hazır durumu
       readyHtml = p.lobbyReady
         ? '<span class="tag ready">Hazır</span>'
         : '<span class="tag">Hazır değil</span>';
     } else {
-      // Faz hazır durumu
-      readyHtml = p.readyPhase > 0
-        ? '<span class="tag ready">Hazır</span>'
-        : '<span class="tag">Hazır değil</span>';
+      readyHtml =
+        p.readyPhase > 0
+          ? '<span class="tag ready">Hazır</span>'
+          : '<span class="tag">Hazır değil</span>';
     }
 
-    // HOST etiketi
-    var hostHtml = p.isHost
+    const hostHtml = p.isHost
       ? '<span class="host-label">HOST</span>'
-      : '';
+      : "";
 
-    // Kick link (sadece host görür ve kendine değil)
-    var kickHtml = "";
+    let kickHtml = "";
     if (me && me.isHost && p.id !== myId) {
       kickHtml =
         ' <span class="kick-link" data-kick-id="' +
@@ -638,24 +769,25 @@ socket.on("playersUpdate", function (data) {
 
   playersList.innerHTML = listHtml || "Henüz kimse yok.";
 
-  // Kick linklerine tıklama
+  // Kick link eventleri
   if (me && me.isHost) {
-    var kickLinks = playersList.querySelectorAll(".kick-link");
-    kickLinks.forEach(function (el) {
+    const kickLinks = playersList.querySelectorAll(".kick-link");
+    kickLinks.forEach((el) => {
       el.addEventListener("click", function () {
-        var targetId = this.getAttribute("data-kick-id");
+        const targetId = this.getAttribute("data-kick-id");
         if (!targetId) return;
-        var sure = window.confirm("Bu oyuncuyu odadan atmak istediğine emin misin?");
+        const sure = window.confirm(
+          "Bu oyuncuyu odadan atmak istediğine emin misin?"
+        );
         if (!sure) return;
-        socket.emit("kickPlayer", { targetId: targetId });
+        socket.emit("kickPlayer", { targetId });
       });
     });
   }
 });
 
-socket.on("lobbyMessage", function (msg) {
+socket.on("lobbyMessage", (msg) => {
   showLobbyInfo(msg);
-  // aynı mesajı sistem chat'e de düşürelim
   addChatMessage({
     from: "Sistem",
     text: msg,
@@ -664,23 +796,22 @@ socket.on("lobbyMessage", function (msg) {
   });
 });
 
-socket.on("kicked", function (data) {
-  var reason = (data && data.reason) || "Host seni odadan attı.";
+socket.on("kicked", (data) => {
+  const reason = (data && data.reason) || "Host seni odadan attı.";
   alert(reason);
   resetUIToMenu();
 });
 
-socket.on("gameStarting", function () {
+socket.on("gameStarting", () => {
   showLobbyInfo("Oyun 3 saniye içinde başlıyor...");
 });
 
-socket.on("caseSelected", function (data) {
-  // seçilen vakayı lobide göster
+socket.on("caseSelected", (data) => {
   showLobbyInfo("Seçilen vaka: " + data.title);
   selectCaseBtn.textContent = "Vaka: " + data.title;
 });
 
-socket.on("phaseData", function (data) {
+socket.on("phaseData", (data) => {
   currentPhase = data.phase;
   phaseInfo.style.display = "none";
   phaseReadyBtn.disabled = false;
@@ -705,13 +836,14 @@ socket.on("phaseData", function (data) {
   }
 });
 
-socket.on("finalResult", function (data) {
+socket.on("finalResult", (data) => {
   resultSection.style.display = "block";
   finalSection.style.display = "none";
 
   if (data.success) {
     resultText.textContent =
-      "TEBRİKLER! Doğru cevabı buldunuz: " + data.correctAnswer.toUpperCase();
+      "TEBRİKLER! Doğru cevabı buldunuz: " +
+      data.correctAnswer.toUpperCase();
   } else {
     resultText.textContent = "Cevaplar yanlış. Tekrar deneyebilirsiniz.";
     submitAnswerBtn.disabled = false;
@@ -720,19 +852,19 @@ socket.on("finalResult", function (data) {
   }
 });
 
-// Oda listesi güncelleme
-socket.on("roomList", function (data) {
+// Oda listesi
+socket.on("roomList", (data) => {
   if (!roomListContainer) return;
-  var rooms = data.rooms || [];
+  const rooms = data.rooms || [];
   if (!rooms.length) {
     roomListContainer.innerHTML = "Şu anda açık oda yok.";
     return;
   }
 
-  var html = "";
-  rooms.forEach(function (r) {
-    var lockIcon = r.isPrivate ? "🔒" : "🔓";
-    var statusLabel = r.status === "LOBBY" ? "Lobby" : "Oyunda";
+  let html = "";
+  rooms.forEach((r) => {
+    const lockIcon = r.isPrivate ? "🔒" : "🔓";
+    const statusLabel = r.status === "LOBBY" ? "Lobby" : "Oyunda";
     html += `
       <div class="room-list-item" data-room-code="${r.roomCode}" data-private="${r.isPrivate}">
         <div class="room-list-top">
@@ -749,23 +881,23 @@ socket.on("roomList", function (data) {
 
   roomListContainer.innerHTML = html;
 
-  // tıklayan odaya katılmaya çalışsın
-  var items = roomListContainer.querySelectorAll(".room-list-item");
-  items.forEach(function (el) {
+  const items = roomListContainer.querySelectorAll(".room-list-item");
+  items.forEach((el) => {
     el.addEventListener("click", function () {
-      var code = this.getAttribute("data-room-code");
-      var isPrivate = this.getAttribute("data-private") === "true";
+      const code = this.getAttribute("data-room-code");
+      const isPrivate = this.getAttribute("data-private") === "true";
 
-      roomCodeInput.value = code; // inputa da yaz
+      roomCodeInput.value = code;
+
+      const name = nameInput.value.trim();
+      if (!name) {
+        joinError.style.display = "block";
+        joinError.textContent = "Önce bir isim girin, sonra odaya katılabilirsiniz.";
+        return;
+      }
 
       if (!isPrivate) {
-        var name = nameInput.value.trim();
-        if (!name) {
-          joinError.style.display = "block";
-          joinError.textContent = "Önce bir isim girin, sonra odaya katılabilirsiniz.";
-          return;
-        }
-        socket.emit("joinRoom", { name: name, roomCode: code, deviceId: deviceId });
+        socket.emit("joinRoom", { name, roomCode: code, deviceId });
       } else {
         openPasswordPromptForRoom(code);
       }
@@ -774,33 +906,90 @@ socket.on("roomList", function (data) {
 });
 
 // ping cevabı
-socket.on("pongCheck", function (data) {
+socket.on("pongCheck", (data) => {
   if (!data || !data.sentAt) return;
-  var rtt = Date.now() - data.sentAt;
+  const rtt = Date.now() - data.sentAt;
   lastPingMs = rtt;
   updatePingLabel(rtt);
 });
 
 // Chat mesajı
-socket.on("chatMessage", function (data) {
+socket.on("chatMessage", (data) => {
   addChatMessage(data);
 });
 
-// --- Paylaşım / link oluşturma ---
+// Voice signaling
+socket.on("voiceNewPeer", async ({ peerId, polite }) => {
+  const pc = createPeerConnection(peerId);
+  peers[peerId] = pc;
+
+  if (!polite && localAudioStream) {
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    socket.emit("voiceOffer", {
+      to: peerId,
+      description: pc.localDescription
+    });
+  }
+});
+
+socket.on("voiceOffer", async ({ from, description }) => {
+  let pc = peers[from];
+  if (!pc) {
+    pc = createPeerConnection(from);
+    peers[from] = pc;
+  }
+
+  await pc.setRemoteDescription(description);
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+
+  socket.emit("voiceAnswer", {
+    to: from,
+    description: pc.localDescription
+  });
+});
+
+socket.on("voiceAnswer", async ({ from, description }) => {
+  const pc = peers[from];
+  if (!pc) return;
+  await pc.setRemoteDescription(description);
+});
+
+socket.on("voiceIceCandidate", async ({ from, candidate }) => {
+  const pc = peers[from];
+  if (!pc) return;
+  try {
+    await pc.addIceCandidate(candidate);
+  } catch (err) {
+    console.error("ICE candidate eklenemedi:", err);
+  }
+});
+
+socket.on("voicePeerLeft", ({ peerId }) => {
+  const pc = peers[peerId];
+  if (pc) pc.close();
+  delete peers[peerId];
+
+  const audioEl = document.getElementById("audio_" + peerId);
+  if (audioEl) audioEl.remove();
+});
+
+// --- Paylaşım / link oluşturma --- //
 
 function buildRoomLink() {
   if (!myRoomCode) return window.location.origin;
   return window.location.origin + "?room=" + myRoomCode;
 }
 
-copyLinkBtn.addEventListener("click", function () {
-  var link = buildRoomLink();
+copyLinkBtn.addEventListener("click", () => {
+  const link = buildRoomLink();
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(link).then(
-      function () {
+      () => {
         showLobbyInfo("Oda linki panoya kopyalandı.");
       },
-      function () {
+      () => {
         showLobbyInfo("Link kopyalanamadı, elle kopyalamayı deneyin: " + link);
       }
     );
@@ -809,9 +998,9 @@ copyLinkBtn.addEventListener("click", function () {
   }
 });
 
-inviteFriendBtn.addEventListener("click", function () {
-  var link = buildRoomLink();
-  var text =
+inviteFriendBtn.addEventListener("click", () => {
+  const link = buildRoomLink();
+  const text =
     "Baş Dedektif & Polis oyununda odama katıl! Oda kodu: " +
     (myRoomCode || "—") +
     " · Link: " +
@@ -821,19 +1010,19 @@ inviteFriendBtn.addEventListener("click", function () {
     navigator
       .share({
         title: "Baş Dedektif & Polis",
-        text: text,
+        text,
         url: link
       })
-      .catch(function () {});
+      .catch(() => {});
   } else {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(
-        function () {
+        () => {
           showLobbyInfo(
             "Davet metni panoya kopyalandı, istediğin yere yapıştırabilirsin."
           );
         },
-        function () {
+        () => {
           showLobbyInfo("Paylaşım desteklenmiyor. Metin: " + text);
         }
       );
