@@ -121,6 +121,7 @@ let pingIntervalId = null;
 let localAudioStream = null;
 let peers = {}; // peerId -> RTCPeerConnection
 let isMuted = false;
+let listenOnly = false; // mikrofon yoksa sadece dinleyici mod
 
 // --- Yardımcı fonksiyonlar --- //
 
@@ -340,13 +341,22 @@ function sendChatMessage() {
 // --- Voice / WebRTC Fonksiyonları --- //
 
 async function joinVoice() {
-  if (localAudioStream) return; // zaten içerde
+  // Zaten ses kanalında isek tekrar girme
+  if (localAudioStream || listenOnly) return;
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    localAudioStream = stream;
+    // Normal mod: mikrofonu almaya çalış
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true
+      }
+    });
 
-    // UI güncelle
+    // Başarılı: konuşan/dinleyen mod
+    localAudioStream = stream;
+    listenOnly = false;
+
     if (joinVoiceBtn) joinVoiceBtn.style.display = "none";
     if (muteToggleBtn) {
       muteToggleBtn.style.display = "inline-flex";
@@ -354,13 +364,38 @@ async function joinVoice() {
     }
     if (leaveVoiceBtn) leaveVoiceBtn.style.display = "inline-flex";
 
-    // Sunucuya ses kanalına katıldığımı ilet
-    socket.emit("joinVoice");
+    // Sunucuya bildir: normal voice join
+    socket.emit("joinVoice", { listenOnly: false });
   } catch (err) {
-    console.error("Mikrofona erişilemedi:", err);
-    alert("Mikrofona erişilemedi. Tarayıcı izinlerini kontrol et.");
+    // Mikrofon yok / bulunamadı / açılamadı → sadece dinleyici mod
+    console.warn(
+      "Mikrofon alınamadı, dinleyici moda geçiliyor:",
+      err.name,
+      err.message
+    );
+
+    listenOnly = true;
+    localAudioStream = null;
+
+    // UI: sadece "Sessizce Dinle" durumu gibi davransın
+    if (joinVoiceBtn) joinVoiceBtn.style.display = "none";
+    if (muteToggleBtn) muteToggleBtn.style.display = "none"; // mikrofon yok, mute anlamsız
+    if (leaveVoiceBtn) leaveVoiceBtn.style.display = "inline-flex";
+
+    // Chat'e küçük bilgi mesajı
+    addChatMessage({
+      from: "Sistem",
+      text:
+        "Bu cihazda kullanılabilir mikrofon bulunamadı. Sesli sohbeti sadece dinleyici olarak kullanıyorsun.",
+      time: Date.now(),
+      isSystem: true
+    });
+
+    // Sunucuya bildir: dinleyici join
+    socket.emit("joinVoice", { listenOnly: true });
   }
 }
+
 
 function toggleMute() {
   if (!localAudioStream) return;
@@ -374,6 +409,7 @@ function toggleMute() {
 }
 
 function cleanupVoice() {
+  listenOnly = false;
   if (localAudioStream) {
     localAudioStream.getTracks().forEach((t) => t.stop());
     localAudioStream = null;
