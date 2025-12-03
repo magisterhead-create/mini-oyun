@@ -53,6 +53,7 @@ const refreshRoomsBtn = document.getElementById("refreshRoomsBtn");
 const pingLabel = document.getElementById("pingLabel");
 
 // Lobby
+const lobbyLayout = document.getElementById("lobbyLayout");
 const lobbySection = document.getElementById("lobbySection");
 const myRoleInfo = document.getElementById("myRoleInfo");
 const roomCodeDisplay = document.getElementById("roomCodeDisplay");
@@ -225,9 +226,15 @@ function resetUIToMenu() {
   menuSection.style.display = "block";
   connectionSection.style.display = "none";
   lobbySection.style.display = "none";
+  if (lobbyLayout) {
+    lobbyLayout.style.display = "grid"; // CSS’teki varsayılan layout
+  }
   phaseSection.style.display = "none";
   finalSection.style.display = "none";
   resultSection.style.display = "none";
+  if (lobbyLayout) {
+    lobbyLayout.style.display = "none";
+  }
 
   joinError.style.display = "none";
   joinError.textContent = "";
