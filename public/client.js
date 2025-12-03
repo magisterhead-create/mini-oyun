@@ -760,7 +760,6 @@ socket.on("playersUpdate", (data) => {
     lobbyReadyBtn.textContent = myLobbyReady ? "Hazır değilim" : "Hazırım";
     updateMyRoleInfo();
 
-    // Host isem Oyunu Başlat butonu görünsün
     if (me.isHost) {
       startGameBtn.style.display = "inline-flex";
     } else {
@@ -793,6 +792,9 @@ socket.on("playersUpdate", (data) => {
       ? '<span class="host-label">HOST</span>'
       : "";
 
+    // 🎧 BURASI: sesli sohbetteyse ikon
+    const voiceHtml = p.inVoice ? " 🎧" : "";
+
     let kickHtml = "";
     if (me && me.isHost && p.id !== myId) {
       kickHtml =
@@ -800,9 +802,10 @@ socket.on("playersUpdate", (data) => {
         p.id +
         '">Kick</span>';
     }
-const voiceHtml = p.inVoice ? " 🎧" : "";
+
     listHtml +=
       p.name +
+      voiceHtml +
       " (" +
       roleLabel +
       ") " +
