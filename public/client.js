@@ -54,6 +54,9 @@ const pingLabel = document.getElementById("pingLabel");
 
 // Lobby
 const lobbyLayout = document.getElementById("lobbyLayout");
+if (lobbyLayout) {
+  lobbyLayout.style.display = "none"; // sayfa açılır açılmaz lobby+chat gizli
+}
 const lobbySection = document.getElementById("lobbySection");
 const myRoleInfo = document.getElementById("myRoleInfo");
 const roomCodeDisplay = document.getElementById("roomCodeDisplay");
@@ -226,9 +229,6 @@ function resetUIToMenu() {
   menuSection.style.display = "block";
   connectionSection.style.display = "none";
   lobbySection.style.display = "none";
-  if (lobbyLayout) {
-    lobbyLayout.style.display = "grid"; // CSS’teki varsayılan layout
-  }
   phaseSection.style.display = "none";
   finalSection.style.display = "none";
   resultSection.style.display = "none";
@@ -711,6 +711,9 @@ socket.on("roomCreated", (payload) => {
 socket.on("joinSuccess", (data) => {
   connectionSection.style.display = "none";
   lobbySection.style.display = "block";
+    if (lobbyLayout) {
+    lobbyLayout.style.display = "grid"; // CSS’te zaten grid layout var
+  }
   myRoomCode = data.roomCode || myRoomCode;
   myRole = data.role || null;
   updateMyRoleInfo();
