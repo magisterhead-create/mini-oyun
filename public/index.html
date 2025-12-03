@@ -2,6 +2,7 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
+    <title>Baş Dedektif & Polis</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
 
@@ -27,13 +28,24 @@
             </button>
           </div>
 
-          <button id="settingsBtn" class="btn-ghost btn-small settings-btn" style="margin-top:14px;">
+          <button
+            id="settingsBtn"
+            class="btn-ghost btn-small settings-btn"
+            style="margin-top:14px;"
+          >
             ⚙️ Settings
           </button>
 
           <div id="settingsPanel" class="sub-panel" style="display:none;">
-            <div style="margin-bottom:4px; font-weight:500; color:#e5e7eb;">Oyun Ayarları (placeholder)</div>
-            <p>Şimdilik sadece görsel. İleride ses seviyesi, dil, tema gibi ayarları buraya ekleyebiliriz.</p>
+            <div
+              style="margin-bottom:4px; font-weight:500; color:#e5e7eb;"
+            >
+              Oyun Ayarları (placeholder)
+            </div>
+            <p>
+              Şimdilik sadece görsel. İleride ses seviyesi, dil, tema gibi
+              ayarları buraya ekleyebiliriz.
+            </p>
           </div>
 
           <div class="footer-bar">
@@ -48,77 +60,145 @@
         <!-- 2) BAĞLANTI EKRANI -->
         <div class="section" id="connectionSection" style="display:none;">
           <h2 class="screen-title">Bağlan</h2>
-          <p class="screen-subtitle">İsmini yaz, sonra odaya bağlan. Rolünü lobide seçeceksin.</p>
+          <p class="screen-subtitle">
+            İsmini yaz, sonra odaya bağlan. Rolünü lobide seçeceksin.
+          </p>
 
           <div class="label">İsmin</div>
-          <input id="nameInput" placeholder="Takma adın (örn: DedektifAyşe)" />
+          <input
+            id="nameInput"
+            placeholder="Takma adın (örn: DedektifAyşe)"
+          />
 
-          <!-- Join modu için oda kodu -->
+          <!-- HOST iken görünen ekstra alanlar -->
+          <div id="hostExtraGroup" style="margin-top:12px; display:none;">
+            <div class="label">Oda Adı (isteğe bağlı)</div>
+            <input
+              id="roomNameInput"
+              placeholder="Örn: Akşam Seansı, Arkadaşlarla Oda"
+            />
+
+            <div class="label" style="margin-top:10px;">
+              Oda Şifresi (isteğe bağlı)
+            </div>
+            <input
+              id="roomPasswordInput"
+              placeholder="Şifre koymak istemiyorsan boş bırak"
+            />
+          </div>
+
           <div id="roomCodeGroup" style="margin-top:12px; display:none;">
             <div class="label">Oda Kodu</div>
             <input id="roomCodeInput" placeholder="Örn: ABCD1" />
           </div>
 
-          <!-- Host modu için ekstra alanlar (oda ismi + şifre) -->
-          <div id="hostExtraGroup" style="margin-top:12px; display:none;">
-            <div class="label">Oda İsmi (isteğe bağlı)</div>
-            <input id="roomNameInput" placeholder="Örn: Akşam Vardiyası Vakası" />
-
-            <div class="label" style="margin-top:8px;">Oda Şifresi (isteğe bağlı)</div>
-            <input id="roomPasswordInput" placeholder="Boş bırakırsan şifresiz olur" />
-          </div>
-
-          <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;">
-            <button id="connectBtn" class="btn-primary" style="flex:1;">Devam et</button>
-            <button id="backToMenuFromConnectBtn" class="btn-secondary" style="flex:1;">Ana menüye dön</button>
-          </div>
-
-          <div id="joinError" class="message error" style="display:none;"></div>
-
-          <!-- Community Server List -->
-          <div id="roomListPanel" class="sub-panel" style="margin-top:16px; display:none;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-              <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.12em; color:var(--text-muted);">
-                Açık Odalar
+          <!-- Bağlan + Oda listesi -->
+          <div class="connection-layout">
+            <div class="connection-main">
+              <div
+                style="
+                  display:flex;
+                  gap:8px;
+                  margin-top:14px;
+                  flex-wrap:wrap;
+                "
+              >
+                <button
+                  id="connectBtn"
+                  class="btn-primary"
+                  style="flex:1;"
+                >
+                  Devam et
+                </button>
+                <button
+                  id="backToMenuFromConnectBtn"
+                  class="btn-secondary"
+                  style="flex:1;"
+                >
+                  Ana menüye dön
+                </button>
               </div>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <div style="font-size:11px; color:var(--text-muted);">
-                  Ping: <span id="pingLabel">-</span>
-                </div>
-                <button id="refreshRoomsBtn" class="btn-ghost btn-small">Yenile</button>
-              </div>
+
+              <div
+                id="joinError"
+                class="message error"
+                style="display:none;"
+              ></div>
             </div>
-            <div id="roomListContainer" style="font-size:13px;">
-              Şu anda açık oda yok.
+
+            <!-- Oda listesi paneli (join modunda açılıyor) -->
+            <div
+              id="roomListPanel"
+              class="room-list-panel"
+              style="display:none;"
+            >
+              <div class="room-list-header">
+                <div class="room-list-title">Açık Odalar</div>
+                <div class="room-list-actions">
+                  <button
+                    id="refreshRoomsBtn"
+                    class="btn-ghost btn-small"
+                  >
+                    Yenile
+                  </button>
+                  <span class="room-list-ping-label">
+                    Ping: <span id="pingLabel">-</span>
+                  </span>
+                </div>
+              </div>
+              <div
+                id="roomListContainer"
+                class="room-list-container"
+              >
+                Şu anda açık oda yok.
+              </div>
             </div>
           </div>
         </div>
 
         <!-- 3) LOBBY & OYUN -->
         <div class="lobby-layout">
-
           <!-- LOBBY -->
           <div class="section" id="lobbySection" style="display:none;">
             <h2 class="screen-title">Lobby</h2>
-            <p class="screen-subtitle">Rolünü seç, hazır ol ve host oyunu başlatsın.</p>
+            <p class="screen-subtitle">
+              Rolünü seç, hazır ol ve host oyunu başlatsın.
+            </p>
 
             <!-- Room Code + Invite -->
             <div class="lobby-top-strip">
               <div class="lobby-top-row">
                 <div>
                   <div class="room-code-label">Room code</div>
-                  <div id="roomCodeDisplay" class="room-code-text">— — — — —</div>
+                  <div
+                    id="roomCodeDisplay"
+                    class="room-code-text"
+                  >
+                    — — — — — 
+                  </div>
                 </div>
                 <div class="lobby-top-actions">
-                  <button id="copyLinkBtn" class="btn-secondary btn-chip">Kopyala</button>
-                  <button id="inviteFriendBtn" class="btn-primary btn-chip">Invite friend</button>
+                  <button
+                    id="copyLinkBtn"
+                    class="btn-secondary btn-chip"
+                  >
+                    Kopyala
+                  </button>
+                  <button
+                    id="inviteFriendBtn"
+                    class="btn-primary btn-chip"
+                  >
+                    Invite friend
+                  </button>
                 </div>
               </div>
             </div>
 
             <!-- Players -->
             <div class="players-box-wrapper">
-              <div class="players-box-title">Players in room</div>
+              <div class="players-box-title">
+                Players in room
+              </div>
               <div class="players-box">
                 <div id="playersList"></div>
               </div>
@@ -131,69 +211,108 @@
               <div class="setup-grid">
                 <div>
                   <div class="label">Aktif rolün</div>
-                  <div id="myRoleInfo" style="font-size:13px; margin-top:4px;"></div>
-                  <button id="openRoleSelectBtn" class="btn-secondary btn-small" style="margin-top:8px;">
+                  <div
+                    id="myRoleInfo"
+                    style="font-size:13px; margin-top:4px;"
+                  ></div>
+                  <button
+                    id="openRoleSelectBtn"
+                    class="btn-secondary btn-small"
+                    style="margin-top:8px;"
+                  >
                     Rol Seç
                   </button>
-                  <div id="roleError" class="message error" style="display:none;"></div>
+                  <div
+                    id="roleError"
+                    class="message error"
+                    style="display:none;"
+                  ></div>
                 </div>
 
                 <div>
                   <div class="label">Vaka seç</div>
-                  <button id="selectCaseBtn" class="btn-ghost btn-small" style="margin-top:6px;">
+                  <button
+                    id="selectCaseBtn"
+                    class="btn-ghost btn-small"
+                    style="margin-top:6px;"
+                  >
                     Default Case
                   </button>
                   <div class="setup-note">
-                    Şimdilik tek vaka var. İleride farklı hikâyeler buradan seçilecek.
+                    Şimdilik tek vaka var. İleride farklı hikâyeler
+                    buradan seçilecek.
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Lobby Chat -->
-            <div class="lobby-chat">
-              <div class="lobby-chat-header">
-                Lobby Chat
-              </div>
-              <div id="chatMessages" class="lobby-chat-messages"></div>
-              <div class="lobby-chat-input-row">
-                <input id="chatInput" placeholder="Mesaj yaz ve Enter'a bas..." />
-                <button id="chatSendBtn" class="btn-primary btn-small">Gönder</button>
-              </div>
-            </div>
-
             <!-- Actions -->
             <div class="lobby-actions">
-              <button id="lobbyReadyBtn" class="btn-primary">Hazırım</button>
-              <button id="startGameBtn" class="btn-secondary" style="display:none;">Oyunu Başlat</button>
-              <button id="backToMenuBtn" class="btn-ghost">Ana menüye dön</button>
+              <button id="lobbyReadyBtn" class="btn-primary">
+                Hazırım
+              </button>
+              <button
+                id="startGameBtn"
+                class="btn-secondary"
+                style="display:none;"
+              >
+                Oyunu Başlat
+              </button>
+              <button id="backToMenuBtn" class="btn-ghost">
+                Ana menüye dön
+              </button>
             </div>
 
-            <div id="lobbyMessage" class="message info-soft" style="display:none; margin-top:10px;"></div>
+            <div
+              id="lobbyMessage"
+              class="message info-soft"
+              style="display:none; margin-top:10px;"
+            ></div>
           </div>
 
-          <!-- PHASES / FINAL / RESULT -->
-          <div>
-
+          <!-- PHASES / FINAL / RESULT + CHAT -->
+          <div class="right-column">
             <!-- Phase -->
             <div class="section" id="phaseSection" style="display:none;">
               <h2 id="phaseTitle">Bölüm</h2>
               <div id="phaseContent" class="phase-box"></div>
-              <button id="phaseReadyBtn" class="btn-primary" style="margin-top:10px;">
+              <button
+                id="phaseReadyBtn"
+                class="btn-primary"
+                style="margin-top:10px;"
+              >
                 Hazırım (Sonraki Aşama)
               </button>
-              <div id="phaseInfo" class="message info-soft" style="display:none;"></div>
+              <div
+                id="phaseInfo"
+                class="message info-soft"
+                style="display:none;"
+              ></div>
             </div>
 
             <!-- Final Answer -->
             <div class="section" id="finalSection" style="display:none;">
               <h2>Son Aşama: Çözüm</h2>
-              <div id="finalQuestion" style="margin-bottom:6px;"></div>
-              <input id="answerInput" placeholder="Cevabınız (ör: garson)" />
-              <button id="submitAnswerBtn" class="btn-primary" style="margin-top:10px;">
+              <div
+                id="finalQuestion"
+                style="margin-bottom:6px;"
+              ></div>
+              <input
+                id="answerInput"
+                placeholder="Cevabınız (ör: garson)"
+              />
+              <button
+                id="submitAnswerBtn"
+                class="btn-primary"
+                style="margin-top:10px;"
+              >
                 Cevabı Gönder
               </button>
-              <div id="finalInfo" class="message info-soft" style="display:none;"></div>
+              <div
+                id="finalInfo"
+                class="message info-soft"
+                style="display:none;"
+              ></div>
             </div>
 
             <!-- Result -->
@@ -202,16 +321,70 @@
               <div id="resultText"></div>
             </div>
 
+            <!-- Lobby Chat + Voice Controls -->
+            <div class="section lobby-chat">
+              <div class="lobby-chat-header">Lobby Chat</div>
+              <div id="chatMessages" class="chat-messages"></div>
+              <div class="chat-input-row">
+                <input
+                  id="chatInput"
+                  placeholder="Mesaj yaz..."
+                />
+                <button
+                  id="chatSendBtn"
+                  class="btn-primary btn-small"
+                >
+                  Gönder
+                </button>
+              </div>
+
+              <!-- ⭐ Sesli iletişim kontrolleri -->
+              <div class="voice-controls">
+                <span class="voice-label">
+                  Sesli sohbet:
+                </span>
+                <div class="voice-buttons">
+                  <button
+                    id="joinVoiceBtn"
+                    class="btn-secondary btn-small"
+                  >
+                    🎙️ Voice'a Katıl
+                  </button>
+                  <button
+                    id="muteToggleBtn"
+                    class="btn-ghost btn-small"
+                    style="display:none;"
+                  >
+                    🔇 Mute
+                  </button>
+                  <button
+                    id="leaveVoiceBtn"
+                    class="btn-ghost btn-small"
+                    style="display:none;"
+                  >
+                    📴 Sesten Ayrıl
+                  </button>
+                </div>
+              </div>
+              <!-- /Sesli iletişim -->
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- OVERLAYS -->
-    <div id="overlayBackdrop" class="overlay-backdrop" style="display:none;">
-
+    <div
+      id="overlayBackdrop"
+      class="overlay-backdrop"
+      style="display:none;"
+    >
       <!-- How To -->
-      <div class="overlay-card" id="howToOverlay" style="display:none;">
+      <div
+        class="overlay-card"
+        id="howToOverlay"
+        style="display:none;"
+      >
         <h3>How to Play</h3>
         <p>1. Bir oyuncu oda oluşturur ve kodu arkadaşına gönderir.</p>
         <p>2. Diğer oyuncu “Odaya Katıl” deyip kodu yazar.</p>
@@ -219,23 +392,41 @@
         <p>4. Host "Oyunu Başlat" deyince ipuçları açılır.</p>
         <p>5. Finalde katili tahmin edin!</p>
         <div class="overlay-footer">
-          <button id="overlayCloseBtn1" class="btn-secondary btn-small">Kapat</button>
+          <button
+            id="overlayCloseBtn1"
+            class="btn-secondary btn-small"
+          >
+            Kapat
+          </button>
         </div>
       </div>
 
       <!-- Credits -->
-      <div class="overlay-card" id="creditsOverlay" style="display:none;">
+      <div
+        class="overlay-card"
+        id="creditsOverlay"
+        style="display:none;"
+      >
         <h3>Credits</h3>
         <p>Oyun tasarımı ve geliştirme:</p>
         <p>👤 Sen + Yapay Zeka Asistanın</p>
         <p>Teknolojiler: Node.js, Express, Socket.IO, Render</p>
         <div class="overlay-footer">
-          <button id="overlayCloseBtn2" class="btn-secondary btn-small">Kapat</button>
+          <button
+            id="overlayCloseBtn2"
+            class="btn-secondary btn-small"
+          >
+            Kapat
+          </button>
         </div>
       </div>
 
       <!-- Role Select -->
-      <div class="overlay-card" id="roleSelectOverlay" style="display:none;">
+      <div
+        class="overlay-card"
+        id="roleSelectOverlay"
+        style="display:none;"
+      >
         <h3>Rol Seç</h3>
         <p>Karakterini seç:</p>
 
@@ -243,60 +434,67 @@
           <div class="role-card" data-role="dedektif">
             <div class="role-avatar role-avatar-dedektif"></div>
             <div class="role-name">Baş Dedektif</div>
-            <div class="role-desc">İpuçlarını birleştiren zihin.</div>
+            <div class="role-desc">
+              İpuçlarını birleştiren zihin.
+            </div>
           </div>
 
           <div class="role-card" data-role="polis">
             <div class="role-avatar role-avatar-polis"></div>
             <div class="role-name">Polis</div>
-            <div class="role-desc">Sahadaki göz, kulak ve refleks.</div>
+            <div class="role-desc">
+              Sahadaki göz, kulak ve refleks.
+            </div>
           </div>
         </div>
 
         <div class="overlay-footer">
-          <button id="roleOverlayCloseBtn" class="btn-secondary btn-small">İptal</button>
+          <button
+            id="roleOverlayCloseBtn"
+            class="btn-secondary btn-small"
+          >
+            İptal
+          </button>
         </div>
       </div>
 
       <!-- Case Select -->
-      <div class="overlay-card" id="caseSelectOverlay" style="display:none;">
+      <div
+        class="overlay-card"
+        id="caseSelectOverlay"
+        style="display:none;"
+      >
         <h3>Vaka Seç</h3>
-        <p>Bir dosya seç ve soruşturmayı başlat:</p>
+        <p>Oynamak istediğiniz vakayı seçin:</p>
 
         <div class="case-grid">
-          <!-- Şimdilik tek vaka kartı -->
-          <div class="case-card" data-case-id="restaurant_murder">
-            <div class="case-header">
-              <div class="case-victim-photo"></div>
-              <div>
-                <div class="case-title">Restorandaki Cinayet</div>
-                <div class="case-meta">
-                  Kurban: Mert Yılmaz<br/>
-                  Olay Yeri: Nişantaşı'nda lüks bir restoran<br/>
-                  Saat: 22:30 civarı
-                </div>
-              </div>
-            </div>
-
+          <div
+            class="case-card"
+            data-case-id="restaurant_murder"
+          >
+            <div class="case-title">Restoran Cinayeti</div>
             <div class="case-brief">
-              Başarılı bir iş insanı akşam yemeği sırasında restoran masasında ölü bulunur.
-              Garson, iş ortağı ve eski sevgili baş şüpheliler arasında.
+              Şehrin popüler bir restoranında işlenen esrarengiz bir cinayet.
+              Kurban, ünlü bir iş insanı. Şüpheliler arasında garson, şef ve
+              ortağı var.
             </div>
-
-            <div class="case-suspects">
-              <div><strong>Şüpheliler:</strong></div>
-              <ul>
-                <li>Restoran Garsonu</li>
-                <li>İş Ortağı</li>
-                <li>Eski Sevgili</li>
-              </ul>
+            <div class="case-meta">
+              Zorluk: Orta · Süre: 15–20 dk
             </div>
           </div>
         </div>
 
-        <div class="overlay-footer" style="justify-content: space-between;">
-          <button id="caseOverlayCloseBtn" class="btn-secondary btn-small">İptal</button>
-          <button id="beginInvestigationBtn" class="btn-primary btn-small">
+        <div class="overlay-footer">
+          <button
+            id="caseOverlayCloseBtn"
+            class="btn-secondary btn-small"
+          >
+            İptal
+          </button>
+          <button
+            id="beginInvestigationBtn"
+            class="btn-primary btn-small"
+          >
             Begin Investigation
           </button>
         </div>
