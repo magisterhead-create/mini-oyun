@@ -625,6 +625,28 @@ button:disabled {
 }
 
 /* Lobby Chat */
+.chat-players-box {
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(55,65,81,0.8);
+  font-size: 12px;
+}
+
+.chat-players-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.chat-players-list {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .lobby-chat {
   margin-top: 12px;
   padding-top: 10px;
