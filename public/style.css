@@ -511,6 +511,88 @@ button:disabled {
   border-top: 1px solid rgba(55,65,81,0.9);
 }
 
+/* --- OYUN EKRANI --- */
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: flex-end;
+}
+
+.game-timer-box {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(55,65,81,0.8);
+  min-width: 110px;
+}
+
+.game-timer {
+  font-size: 20px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.game-players-box {
+  flex: 1;
+}
+
+/* ana içerik alanı */
+.game-main {
+  margin-top: 6px;
+  margin-bottom: 8px;
+}
+
+.game-tab-content {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(55,65,81,0.8);
+  min-height: 120px;
+  font-size: 13px;
+}
+
+/* sekmeler */
+.game-tabs {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.game-tab-btn {
+  flex: 1;
+  font-size: 11px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.9);
+  color: #e5e7eb;
+  border: 1px solid rgba(75,85,99,0.9);
+  cursor: pointer;
+}
+
+.game-tab-btn.active {
+  background: var(--accent);
+  border-color: rgba(129,140,248,0.9);
+  color: #f9fafb;
+}
+
+/* ortak tahta / notlar text alanları */
+.board-textarea {
+  margin-top: 6px;
+  width: 100%;
+  min-height: 120px;
+  border-radius: 10px;
+  border: 1px solid rgba(148,163,184,0.5);
+  background: rgba(15,23,42,0.95);
+  color: var(--text-main);
+  font-size: 13px;
+  padding: 8px 9px;
+  resize: vertical;
+}
+
 .lobby-setup-title {
   font-size: 12px;
   text-transform: uppercase;
