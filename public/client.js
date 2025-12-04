@@ -8,6 +8,15 @@ if (!deviceId) {
 }
 
 // --- DOM ELEMANLARI --- //
+const gameSection = document.getElementById("gameSection");
+const gameTimerDisplay = document.getElementById("gameTimerDisplay");
+const gamePlayersList = document.getElementById("gamePlayersList");
+const gameTabContent = document.getElementById("gameTabContent");
+const tabRoleMainBtn = document.getElementById("tabRoleMainBtn");
+const tabRoleSpecialBtn = document.getElementById("tabRoleSpecialBtn");
+const tabSharedBoardBtn = document.getElementById("tabSharedBoardBtn");
+const tabNotesBtn = document.getElementById("tabNotesBtn");
+const tabSettingsBtn = document.getElementById("tabSettingsBtn");
 
 // Menü
 const menuSection = document.getElementById("menuSection");
@@ -106,6 +115,12 @@ if (savedName && nameInput) {
 }
 
 // --- STATE --- //
+let inGame = false;
+let currentGameTab = "roleMain";
+let gameTimerSeconds = 30 * 60;
+let gameTimerInterval = null;
+let sharedBoardText = "";
+let notesText = "";
 
 let myId = null;
 let myRole = null;
@@ -129,6 +144,58 @@ let listenOnly = false; // mikrofon yoksa sadece dinleyici mod
 
 // --- Yardımcı fonksiyonlar --- //
 // --- Nick / kalıcı isim için storage helper'ları --- //
+const ROLE_CONFIG = {
+  dedektif: {
+    displayName: "Baş Dedektif",
+    specialTabLabel: "Analiz",
+    description: "İpuçlarını birleştirip büyük resmi gören zihin."
+  },
+  polis: {
+    displayName: "Polis",
+    specialTabLabel: "Sorgu",
+    description: "Şüphelileri sorgulayan, sahadaki baskı gücü."
+  },
+  ajan: {
+    displayName: "Ajan",
+    specialTabLabel: "İstihbarat",
+    description: "Gizli bilgilere ulaşıp perde arkasını çözmeye çalışan rol."
+  },
+  güvenlik: {
+    displayName: "Güvenlik",
+    specialTabLabel: "Gözetim",
+    description: "Kamera kayıtlarını ve güvenlik açıklarını inceleyen oyuncu."
+  }
+};
+
+function formatSeconds(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+}
+
+function startGameTimer() {
+  gameTimerSeconds = 30 * 60;
+  if (gameTimerInterval) clearInterval(gameTimerInterval);
+
+  if (gameTimerDisplay) {
+    gameTimerDisplay.textContent = formatSeconds(gameTimerSeconds);
+  }
+
+  gameTimerInterval = setInterval(() => {
+    gameTimerSeconds -= 1;
+    if (gameTimerSeconds <= 0) {
+      gameTimerSeconds = 0;
+      clearInterval(gameTimerInterval);
+      gameTimerInterval = null;
+      if (gameTimerDisplay) {
+        gameTimerDisplay.textContent = "00:00";
+      }
+      showLobbyInfo("Süre doldu! İsterseniz yeni bir oyun başlatabilirsiniz.");
+    } else if (gameTimerDisplay) {
+      gameTimerDisplay.textContent = formatSeconds(gameTimerSeconds);
+    }
+  }, 1000);
+}
 
 function setCookie(name, value, days) {
   try {
@@ -140,6 +207,100 @@ function setCookie(name, value, days) {
     // bazı eski tarayıcılarda sorun çıkarsa sessiz geç
   }
 }
+
+function setActiveTab(tabName) {
+  currentGameTab = tabName;
+  const buttons = document.querySelectorAll(".game-tab-btn");
+  buttons.forEach((btn) => {
+    if (btn.getAttribute("data-tab") === tabName) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+  renderCurrentTab();
+}
+
+function renderCurrentTab() {
+  if (!gameTabContent) return;
+  const cfg = ROLE_CONFIG[myRole] || null;
+  gameTabContent.innerHTML = "";
+
+  if (currentGameTab === "roleMain") {
+    const roleLabel = cfg ? cfg.displayName : (myRole || "Rol");
+    const desc = cfg ? cfg.description : "Rolünle ilgili detaylar burada gözükecek.";
+    gameTabContent.innerHTML = `
+      <h3>${roleLabel}</h3>
+      <p style="font-size:13px; color: var(--text-muted);">
+        ${desc}
+      </p>
+    `;
+  } else if (currentGameTab === "roleSpecial") {
+    const specialLabel = cfg ? cfg.specialTabLabel : "Özel Görev";
+    gameTabContent.innerHTML = `
+      <h3>${specialLabel}</h3>
+      <p style="font-size:13px; color: var(--text-muted);">
+        Bu rolde sana özel görevler burada görünecek. Şimdilik placeholder.
+      </p>
+    `;
+  } else if (currentGameTab === "sharedBoard") {
+    gameTabContent.innerHTML = `
+      <div class="label">Ortak Tahta</div>
+      <textarea
+        id="sharedBoardTextarea"
+        class="board-textarea"
+        placeholder="Bulduğun ipuçlarını buraya yaz; tüm oyuncular görebilir."
+      ></textarea>
+      <button
+        id="sharedBoardSaveBtn"
+        class="btn-primary btn-small"
+        style="margin-top:8px;"
+      >
+        Kaydet
+      </button>
+      <div class="setup-note">
+        Bu alan odadaki tüm oyuncularla ortaktır.
+      </div>
+    `;
+    const ta = document.getElementById("sharedBoardTextarea");
+    const btn = document.getElementById("sharedBoardSaveBtn");
+    if (ta) ta.value = sharedBoardText || "";
+    if (btn) {
+      btn.addEventListener("click", () => {
+        const content = ta.value;
+        sharedBoardText = content;
+        socket.emit("updateSharedBoard", { content });
+      });
+    }
+  } else if (currentGameTab === "notes") {
+    gameTabContent.innerHTML = `
+      <div class="label">Kişisel Notların</div>
+      <textarea
+        id="notesTextarea"
+        class="board-textarea"
+        placeholder="Kendi notlarını buraya yaz; sadece sen göreceksin."
+      ></textarea>
+      <div class="setup-note">
+        Bu notlar sadece bu cihazda saklanır.
+      </div>
+    `;
+    const ta = document.getElementById("notesTextarea");
+    if (ta) ta.value = notesText || "";
+    if (ta) {
+      ta.addEventListener("input", () => {
+        notesText = ta.value;
+      });
+    }
+  } else if (currentGameTab === "settings") {
+    gameTabContent.innerHTML = `
+      <h3>Ayarlar</h3>
+      <p style="font-size:13px; color: var(--text-muted);">
+        Bu alanı ileride oyun içi ayarlar için kullanacağız.
+      </p>
+    `;
+  }
+}
+
 
 function getCookie(name) {
   try {
@@ -187,10 +348,30 @@ function updateMyRoleInfo() {
     text = "Rolün: Baş Dedektif";
   } else if (myRole === "polis") {
     text = "Rolün: Polis";
+  } else if (myRole === "ajan") {
+    text = "Rolün: Ajan";
+  } else if (myRole === "güvenlik") {
+    text = "Rolün: Güvenlik";
   } else {
     text = "Rolün: (henüz seçilmedi)";
   }
   myRoleInfo.textContent = text;
+  updateGameRoleUI();
+}
+
+function updateGameRoleUI() {
+  if (!tabRoleMainBtn || !tabRoleSpecialBtn) return;
+
+  const cfg = ROLE_CONFIG[myRole] || null;
+  const roleLabel = cfg ? cfg.displayName : (myRole || "Rol");
+  const specialLabel = cfg ? cfg.specialTabLabel : "Özel Görev";
+
+  tabRoleMainBtn.textContent = roleLabel;
+  tabRoleSpecialBtn.textContent = specialLabel;
+
+  if (inGame) {
+    renderCurrentTab();
+  }
 }
 
 function showLobbyInfo(msg) {
@@ -278,6 +459,20 @@ function addChatMessage(data) {
 }
 
 function resetUIToMenu() {
+  if (gameSection) {
+  gameSection.style.display = "none";
+}
+inGame = false;
+sharedBoardText = "";
+notesText = "";
+if (gameTimerInterval) {
+  clearInterval(gameTimerInterval);
+  gameTimerInterval = null;
+}
+if (gameTimerDisplay) {
+  gameTimerDisplay.textContent = "30:00";
+}
+
   menuSection.style.display = "block";
   connectionSection.style.display = "none";
   lobbySection.style.display = "none";
@@ -544,6 +739,21 @@ function createPeerConnection(peerId) {
 }
 
 // --- EVENT LISTENERS --- //
+if (tabRoleMainBtn) {
+  tabRoleMainBtn.addEventListener("click", () => setActiveTab("roleMain"));
+}
+if (tabRoleSpecialBtn) {
+  tabRoleSpecialBtn.addEventListener("click", () => setActiveTab("roleSpecial"));
+}
+if (tabSharedBoardBtn) {
+  tabSharedBoardBtn.addEventListener("click", () => setActiveTab("sharedBoard"));
+}
+if (tabNotesBtn) {
+  tabNotesBtn.addEventListener("click", () => setActiveTab("notes"));
+}
+if (tabSettingsBtn) {
+  tabSettingsBtn.addEventListener("click", () => setActiveTab("settings"));
+}
 
 // Overlay butonları
 howToBtn.addEventListener("click", () => openOverlay("howto"));
@@ -681,6 +891,14 @@ selectCaseBtn.addEventListener("click", () => {
   roleError.style.display = "none";
   roleError.textContent = "";
   openOverlay("cases");
+});
+
+socket.on("sharedBoardUpdated", (data) => {
+  sharedBoardText = data.content || "";
+  if (currentGameTab === "sharedBoard") {
+    const ta = document.getElementById("sharedBoardTextarea");
+    if (ta) ta.value = sharedBoardText;
+  }
 });
 
 socket.on("caseSelected", (data) => {
@@ -896,6 +1114,10 @@ socket.on("playersUpdate", (data) => {
   }
 
   playersList.innerHTML = listHtml || "Henüz kimse yok.";
+  if (gamePlayersList) {
+  gamePlayersList.innerHTML = listHtml || "Henüz kimse yok.";
+}
+
 
   // Kick link eventleri
   if (me && me.isHost) {
@@ -978,27 +1200,41 @@ function updateRoleSelectOverlay() {
 
 socket.on("phaseData", (data) => {
   currentPhase = data.phase;
-  phaseInfo.style.display = "none";
-  phaseReadyBtn.disabled = false;
 
-  if (data.phase >= 1 && data.phase <= 3) {
-    finalSection.style.display = "none";
-    resultSection.style.display = "none";
-    phaseSection.style.display = "block";
+  // Eski faz ekranlarını kapat
+  phaseSection.style.display = "none";
+  finalSection.style.display = "none";
+  resultSection.style.display = "none";
 
-    phaseTitle.textContent = data.phase + ". Bölüm";
-    phaseContent.textContent = data.clue;
-  } else if (data.phase === 4) {
-    phaseSection.style.display = "none";
-    resultSection.style.display = "none";
-    finalSection.style.display = "block";
-
-    finalQuestion.textContent = data.finalQuestion;
-    finalInfo.style.display = "none";
-    submitAnswerBtn.disabled = false;
-    answerInput.disabled = false;
-    answerInput.value = "";
+  // Lobby'yi gizle, oyun ekranını aç
+  lobbySection.style.display = "none";
+  if (gameSection && lobbyLayout) {
+    gameSection.style.display = "block";
+    lobbyLayout.style.display = "grid";
   }
+
+  // İlk kez oyuna geçiş
+  if (!inGame) {
+    inGame = true;
+    startGameTimer();
+    setActiveTab("roleMain");
+  }
+
+  // Server'dan gelen clue'ları istersek ortak tahtaya ekleyebiliriz
+  if (data.clue) {
+    const header = `Bölüm ${data.phase} İpucu:\n`;
+    if (!sharedBoardText) {
+      sharedBoardText = header + data.clue;
+    } else {
+      sharedBoardText += `\n\n${header}${data.clue}`;
+    }
+    if (currentGameTab === "sharedBoard") {
+      renderCurrentTab();
+    }
+  }
+
+  // Final question vs. için şimdilik ayrı ekran açmıyoruz,
+  // mevcut ortak tahtayı kullanmaya devam edeceğiz (ileride değiştirebiliriz).
 });
 
 socket.on("finalResult", (data) => {
