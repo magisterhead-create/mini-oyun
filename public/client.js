@@ -99,8 +99,8 @@ const joinVoiceBtn = document.getElementById("joinVoiceBtn");
 const muteToggleBtn = document.getElementById("muteToggleBtn");
 const leaveVoiceBtn = document.getElementById("leaveVoiceBtn");
 
-// Sayfa açıldığında kayıtlı nick'i yükle
-const savedName = localStorage.getItem("bdp_name");
+// Sayfa açıldığında kayıtlı nick'i yükle (localStorage + cookie fallback)
+const savedName = loadPlayerName();
 if (savedName && nameInput) {
   nameInput.value = savedName;
 }
@@ -128,6 +128,58 @@ let isMuted = false;
 let listenOnly = false; // mikrofon yoksa sadece dinleyici mod
 
 // --- Yardımcı fonksiyonlar --- //
+// --- Nick / kalıcı isim için storage helper'ları --- //
+
+function setCookie(name, value, days) {
+  try {
+    const d = new Date();
+    d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
+    const expires = "expires=" + d.toUTCString();
+    document.cookie = name + "=" + encodeURIComponent(value) + ";" + expires + ";path=/";
+  } catch (e) {
+    // bazı eski tarayıcılarda sorun çıkarsa sessiz geç
+  }
+}
+
+function getCookie(name) {
+  try {
+    const cname = name + "=";
+    const decoded = decodeURIComponent(document.cookie || "");
+    const parts = decoded.split(";");
+    for (let c of parts) {
+      c = c.trim();
+      if (c.indexOf(cname) === 0) {
+        return c.substring(cname.length);
+      }
+    }
+  } catch (e) {}
+  return "";
+}
+
+function savePlayerName(name) {
+  // localStorage varsa oraya da yaz
+  try {
+    localStorage.setItem("bdp_name", name);
+  } catch (e) {
+    // bazı mobil tarayıcılar izin vermeyebilir
+  }
+  // cookie'ye mutlaka yaz (1 yıl)
+  setCookie("bdp_name", name, 365);
+}
+
+function loadPlayerName() {
+  let name = "";
+  try {
+    name = localStorage.getItem("bdp_name") || "";
+  } catch (e) {
+    name = "";
+  }
+  if (!name) {
+    name = getCookie("bdp_name") || "";
+  }
+  return name;
+}
+
 
 function updateMyRoleInfo() {
   let text;
@@ -562,7 +614,7 @@ connectBtn.addEventListener("click", () => {
   }
 
   // Nick'i kaydet
-  localStorage.setItem("bdp_name", name);
+  savePlayerName(name);
 
   if (mode === "host") {
     const roomName = roomNameInput ? roomNameInput.value.trim() : "";
