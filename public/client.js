@@ -610,6 +610,9 @@ selectCaseBtn.addEventListener("click", () => {
   roleError.textContent = "";
   openOverlay("cases");
 });
+socket.on("caseSelected", (data) => {
+  openRoleSelectBtn.disabled = false; // ⭐ artık rol seçilebilir
+});
 
 // Begin Investigation -> seçili case'i sunucuya gönder
 beginInvestigationBtn.addEventListener("click", () => {
@@ -854,11 +857,44 @@ socket.on("kicked", (data) => {
 socket.on("gameStarting", () => {
   showLobbyInfo("Oyun 3 saniye içinde başlıyor...");
 });
-
+let currentCaseRoles = []; // seçilen case'in rollerini tutar
 socket.on("caseSelected", (data) => {
   showLobbyInfo("Seçilen vaka: " + data.title);
   selectCaseBtn.textContent = "Vaka: " + data.title;
+   // ⭐ roller kaydediliyor
+  currentCaseRoles = data.roles;
+
+  // Rol seçme overlay’ini güncelle
+  updateRoleSelectOverlay();
+
+  // Oyuncuların rolünü resetle
+  myRole = null;
+  updateMyRoleInfo();
 });
+function updateRoleSelectOverlay() {
+  const roleGrid = document.querySelector(".role-grid");
+  roleGrid.innerHTML = ""; // eski rolleri temizle
+
+  currentCaseRoles.forEach((role) => {
+    const card = document.createElement("div");
+    card.className = "role-card";
+    card.setAttribute("data-role", role);
+
+    card.innerHTML = `
+      <div class="role-avatar" style="background:linear-gradient(135deg,#1e3a8a,#6366f1);"></div>
+      <div class="role-name">${role.toUpperCase()}</div>
+      <div class="role-desc">${role} rolünü üstlen.</div>
+    `;
+
+    card.addEventListener("click", function () {
+      socket.emit("chooseRole", { role });
+      closeOverlay();
+    });
+
+    roleGrid.appendChild(card);
+  });
+}
+
 
 socket.on("phaseData", (data) => {
   currentPhase = data.phase;
