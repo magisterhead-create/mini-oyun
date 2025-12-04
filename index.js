@@ -178,6 +178,7 @@ io.on("connection", (socket) => {
   currentPhase: 0,
   currentCaseId: null,
   puzzle: null,
+  sharedBoard: "",    // ⭐ ortak tahta metni
   players: {}
 };
 
@@ -207,6 +208,21 @@ io.on("connection", (socket) => {
     sendSystemMessage(roomCode, `${name || "Bir oyuncu"} odayı oluşturdu.`);
     broadcastRoomList();
   });
+  // Ortak tahta güncelleme
+socket.on("updateSharedBoard", ({ content }) => {
+  const roomCode = socket.data?.roomCode;
+  if (!roomCode || !rooms[roomCode]) return;
+
+  const room = rooms[roomCode];
+  if (!room.players[socket.id]) return;
+
+  room.sharedBoard = (content || "").slice(0, 5000); // güvenlik için limit
+
+  io.to(roomCode).emit("sharedBoardUpdated", {
+    content: room.sharedBoard
+  });
+});
+
 
   // Oda listesi isteği
   socket.on("getRoomList", () => {
@@ -287,6 +303,12 @@ if (room.currentCaseId && room.puzzle) {
     caseId: room.currentCaseId,
     title: c.title,
     roles: c.roles
+  });
+}
+    // Eğer ortak tahta doluysa yeni gelene gönder
+if (room.sharedBoard) {
+  socket.emit("sharedBoardUpdated", {
+    content: room.sharedBoard
   });
 }
 
@@ -405,6 +427,8 @@ if (room.currentCaseId && room.puzzle) {
 
   // 3) OYUNU BAŞLAT
   room.currentPhase = 1;
+  room.sharedBoard = "";
+io.to(roomCode).emit("sharedBoardUpdated", { content: room.sharedBoard });
   io.to(roomCode).emit("gameStarting");
   sendSystemMessage(roomCode, "Oyun başlatılıyor...");
 
