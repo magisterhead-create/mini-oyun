@@ -312,82 +312,117 @@
 
 
 
-            <!-- Lobby Chat + Voice Controls -->
-                        <!-- Lobby Chat + Voice Controls -->
-            <div class="section lobby-chat">
-              <div class="lobby-chat-header">Lobby Chat</div>
+           <!-- PHASES / FINAL / RESULT + CHAT -->
+<div class="right-column">
 
-              <!-- 🔹 Yeni: Chat içindeki oyuncu listesi -->
-              <div class="chat-players-box">
-                <div class="chat-players-title">Odadaki oyuncular</div>
-                <div id="chatPlayersList" class="chat-players-list">
-                  Henüz kimse yok.
-                </div>
-              </div>
+  <!-- YENİ OYUN EKRANI (GAME UI) -->
+  <div class="section" id="gameSection" style="display:none;">
+    <div class="game-top-bar" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+      <div style="display:flex; flex-direction:column; gap:2px;">
+        <div id="gameTimerDisplay">30:00</div>
+        <div id="gameRoleLabel" style="font-size:12px; color:var(--text-muted);"></div>
+      </div>
 
-              <div id="chatMessages" class="chat-messages"></div>
-              <div class="chat-input-row">
-                <input
-                  id="chatInput"
-                  placeholder="Mesaj yaz..."
-                />
-                <button
-                  id="chatSendBtn"
-                  class="btn-primary btn-small"
-                >
-                  Gönder
-                </button>
-              </div>
-            <div class="section lobby-chat">
-              <div class="lobby-chat-header">Chat</div>
-              <div id="chatMessages" class="chat-messages"></div>
-              <div class="chat-input-row">
-                <input
-                  id="chatInput"
-                  placeholder="Mesaj yaz..."
-                />
-                <button
-                  id="chatSendBtn"
-                  class="btn-primary btn-small"
-                >
-                  Gönder
-                </button>
-              </div>
+      <button
+        id="backToMenuFromGameBtn"
+        class="btn-ghost btn-small"
+      >
+        Ana menüye dön
+      </button>
+    </div>
 
-              <!-- ⭐ Sesli iletişim kontrolleri -->
-              <div class="voice-controls">
-                <span class="voice-label">
-                  Sesli sohbet:
-                </span>
-                <div class="voice-buttons">
-                  <button
-                    id="joinVoiceBtn"
-                    class="btn-secondary btn-small"
-                  >
-                    🎙️ Voice'a Katıl
-                  </button>
-                  <button
-                    id="muteToggleBtn"
-                    class="btn-ghost btn-small"
-                    style="display:none;"
-                  >
-                    🔇 Mute
-                  </button>
-                  <button
-                    id="leaveVoiceBtn"
-                    class="btn-ghost btn-small"
-                    style="display:none;"
-                  >
-                    📴 Sesten Ayrıl
-                  </button>
-                </div>
-              </div>
-              <!-- /Sesli iletişim -->
-            </div>
-          </div>
-        </div>
+    <!-- Orta Alan — Sekme İçerikleri -->
+    <div id="gameTabContent" class="game-content-box">
+      Lütfen bir sekme seçin.
+    </div>
+
+    <!-- Alt Sekme Menüsü -->
+    <div class="game-tabs">
+      <button
+        class="game-tab-btn active"
+        id="tabRoleMainBtn"
+        data-tab="roleMain"
+      >
+        Rol
+      </button>
+      <button
+        class="game-tab-btn"
+        id="tabRoleSpecialBtn"
+        data-tab="roleSpecial"
+      >
+        Görev
+      </button>
+      <button
+        class="game-tab-btn"
+        id="tabSharedBoardBtn"
+        data-tab="sharedBoard"
+      >
+        Ortak Tahta
+      </button>
+      <button
+        class="game-tab-btn"
+        id="tabNotesBtn"
+        data-tab="notes"
+      >
+        Notlar
+      </button>
+      <button
+        class="game-tab-btn"
+        id="tabSettingsBtn"
+        data-tab="settings"
+      >
+        Ayarlar
+      </button>
+    </div>
+  </div>
+
+  <!-- LOBBY CHAT + OYUNCU LİSTESİ + SES -->
+  <div class="section lobby-chat">
+    <div class="lobby-chat-header">Lobby Chat</div>
+
+    <div class="players-box-title" style="margin-bottom:4px;">
+      Odadaki oyuncular
+    </div>
+    <div id="gamePlayersList" class="players-box" style="margin-bottom:8px;">
+      Henüz kimse yok.
+    </div>
+
+    <div id="chatMessages" class="chat-messages"></div>
+
+    <div class="chat-input-row">
+      <input id="chatInput" placeholder="Mesaj yaz..." />
+      <button id="chatSendBtn" class="btn-primary btn-small">
+        Gönder
+      </button>
+    </div>
+
+    <div class="voice-controls">
+      <span class="voice-label">
+        Sesli sohbet:
+      </span>
+      <div class="voice-buttons">
+        <button id="joinVoiceBtn" class="btn-secondary btn-small">
+          🎙️ Voice'a Katıl
+        </button>
+        <button
+          id="muteToggleBtn"
+          class="btn-ghost btn-small"
+          style="display:none;"
+        >
+          🔇 Mute
+        </button>
+        <button
+          id="leaveVoiceBtn"
+          class="btn-ghost btn-small"
+          style="display:none;"
+        >
+          📴 Sesten Ayrıl
+        </button>
       </div>
     </div>
+  </div>
+</div>
+
 
     <!-- OVERLAYS -->
     <div
