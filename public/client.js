@@ -35,6 +35,7 @@ const roleSelectOverlay = document.getElementById("roleSelectOverlay");
 const overlayCloseBtn1 = document.getElementById("overlayCloseBtn1");
 const overlayCloseBtn2 = document.getElementById("overlayCloseBtn2");
 const roleOverlayCloseBtn = document.getElementById("roleOverlayCloseBtn");
+const caseOverlayCloseBtn = document.getElementById("caseOverlayCloseBtn");
 // Overlay butonları (güvenli bağlama)
 if (howToBtn) howToBtn.addEventListener("click", () => openOverlay("howto"));
 if (creditsBtn) creditsBtn.addEventListener("click", () => openOverlay("credits"));
@@ -46,7 +47,6 @@ if (caseOverlayCloseBtn) caseOverlayCloseBtn.addEventListener("click", closeOver
 
 // Case overlay
 const caseSelectOverlay = document.getElementById("caseSelectOverlay");
-const caseOverlayCloseBtn = document.getElementById("caseOverlayCloseBtn");
 const beginInvestigationBtn = document.getElementById("beginInvestigationBtn");
 
 // Bağlantı ekranı
