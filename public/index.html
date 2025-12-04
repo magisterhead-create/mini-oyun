@@ -157,7 +157,7 @@
         </div>
 
         <!-- 3) LOBBY & OYUN -->
-        <div class="lobby-layout" id="lobbyLayout">
+        <div class="lobby-layout" id="lobbyLayout" style="display:none;">
           <!-- LOBBY -->
           <div class="section" id="lobbySection" style="display:none;">
             <h2 class="screen-title">Lobby</h2>
@@ -272,58 +272,38 @@
 
           <!-- PHASES / FINAL / RESULT + CHAT -->
           <div class="right-column">
-            <!-- Phase -->
-            <div class="section" id="phaseSection" style="display:none;">
-              <h2 id="phaseTitle">Bölüm</h2>
-              <div id="phaseContent" class="phase-box"></div>
-              <button
-                id="phaseReadyBtn"
-                class="btn-primary"
-                style="margin-top:10px;"
-              >
-                Hazırım (Sonraki Aşama)
-              </button>
-              <div
-                id="phaseInfo"
-                class="message info-soft"
-                style="display:none;"
-              ></div>
-            </div>
+           <!-- ========================= -->
+<!-- YENİ OYUN EKRANI (GAME UI) -->
+<!-- ========================= -->
 
-            <!-- Final Answer -->
-            <div class="section" id="finalSection" style="display:none;">
-              <h2>Son Aşama: Çözüm</h2>
-              <div
-                id="finalQuestion"
-                style="margin-bottom:6px;"
-              ></div>
-              <input
-                id="answerInput"
-                placeholder="Cevabınız (ör: garson)"
-              />
-              <button
-                id="submitAnswerBtn"
-                class="btn-primary"
-                style="margin-top:10px;"
-              >
-                Cevabı Gönder
-              </button>
-              <div
-                id="finalInfo"
-                class="message info-soft"
-                style="display:none;"
-              ></div>
-            </div>
+<div class="section" id="gameScreen" style="display:none;">
 
-            <!-- Result -->
-            <div class="section" id="resultSection" style="display:none;">
-              <h2>Sonuç</h2>
-              <div id="resultText"></div>
-            </div>
+  <!-- Üst Bar: Süre + Rol Bilgisi -->
+  <div class="game-top-bar">
+    <div id="gameTimer">30:00</div>
+    <div id="gameRoleLabel"></div>
+  </div>
+
+  <!-- Orta Alan — Sekme İçerikleri -->
+  <div id="gameTabContent" class="game-content-box">
+    Lütfen bir sekme seçin.
+  </div>
+
+  <!-- Alt Sekme Menüsü -->
+  <div class="game-tabs">
+    <button class="game-tab-btn" id="tabRoleBtn">Rol</button>
+    <button class="game-tab-btn" id="tabRoleActionBtn">Görev</button>
+    <button class="game-tab-btn" id="tabBoardBtn">Ortak Tahta</button>
+    <button class="game-tab-btn" id="tabNotesBtn">Notlar</button>
+    <button class="game-tab-btn" id="tabSettingsBtn">Ayarlar</button>
+  </div>
+
+</div>
+
 
             <!-- Lobby Chat + Voice Controls -->
             <div class="section lobby-chat">
-              <div class="lobby-chat-header">Lobby Chat</div>
+              <div class="lobby-chat-header">Chat</div>
               <div id="chatMessages" class="chat-messages"></div>
               <div class="chat-input-row">
                 <input
