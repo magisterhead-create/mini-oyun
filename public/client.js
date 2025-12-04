@@ -277,8 +277,11 @@ function resetUIToMenu() {
   startGameBtn.style.display = "none";
 
   // case butonu varsayılan haline dönsün
-  selectCaseBtn.textContent = "Default Case";
-  selectedCaseId = "restaurant_murder";
+  selectCaseBtn.textContent = "Case seçiniz";
+selectedCaseId = null;
+currentCaseRoles = [];
+openRoleSelectBtn.disabled = true;
+highlightSelectedCase(null); // hiçbir kart seçili olmasın
 
   // ping & room list reset
   stopPingLoop();
@@ -317,6 +320,19 @@ function closeOverlay() {
   roleSelectOverlay.style.display = "none";
   caseSelectOverlay.style.display = "none";
 }
+
+function highlightSelectedCase(caseId) {
+  const cards = document.querySelectorAll(".case-card");
+  cards.forEach((card) => {
+    const id = card.getAttribute("data-case-id");
+    if (id === caseId) {
+      card.classList.add("selected");
+    } else {
+      card.classList.remove("selected");
+    }
+  });
+}
+
 
 // Room password prompt for private rooms
 function openPasswordPromptForRoom(code) {
@@ -606,10 +622,14 @@ caseCards.forEach((card) => {
 
 // Case seçimi - overlay aç
 selectCaseBtn.addEventListener("click", () => {
+  // host değilse veya buton disabled ise hiçbir şey yapma
+  if (selectCaseBtn.disabled) return;
+
   roleError.style.display = "none";
   roleError.textContent = "";
   openOverlay("cases");
 });
+
 socket.on("caseSelected", (data) => {
   openRoleSelectBtn.disabled = false; // ⭐ artık rol seçilebilir
 });
@@ -730,8 +750,10 @@ socket.on("joinSuccess", (data) => {
   // Host ise "Oyunu Başlat" butonu görünsün
   if (data.isHost) {
     startGameBtn.style.display = "inline-flex";
+    selectCaseBtn.disabled = false;
   } else {
     startGameBtn.style.display = "none";
+    selectCaseBtn.disabled = true;
   }
 });
 
@@ -767,6 +789,7 @@ socket.on("playersUpdate", (data) => {
       startGameBtn.style.display = "inline-flex";
     } else {
       startGameBtn.style.display = "none";
+      selectCaseBtn.disabled = true; // ⭐ non-host case butonu kapalı
     }
   }
 
@@ -870,6 +893,10 @@ socket.on("caseSelected", (data) => {
   // Oyuncuların rolünü resetle
   myRole = null;
   updateMyRoleInfo();
+   // ⭐ kart highlight
+  highlightSelectedCase(data.caseId);
+  // Rol seç butonu artık aktif
+  openRoleSelectBtn.disabled = false;
 });
 function updateRoleSelectOverlay() {
   const roleGrid = document.querySelector(".role-grid");
