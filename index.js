@@ -380,30 +380,41 @@ if (room.currentCaseId && room.puzzle) {
 
   // Host oyunu başlat
   socket.on("startGame", () => {
-    const roomCode = socket.data?.roomCode;
-    if (!roomCode || !rooms[roomCode]) return;
+  const roomCode = socket.data?.roomCode;
+  if (!roomCode || !rooms[roomCode]) return;
 
-    const room = rooms[roomCode];
-    if (socket.id !== room.hostId) {
-      return;
-    }
+  const room = rooms[roomCode];
 
-    if (!allLobbyReady(roomCode)) {
-      socket.emit(
-        "lobbyMessage",
-        "Tüm oyuncular hem rol seçmiş hem de hazır olmuş olmalı."
-      );
-      return;
-    }
+  // Host değilse izin yok
+  if (socket.id !== room.hostId) return;
 
-    room.currentPhase = 1;
-    io.to(roomCode).emit("gameStarting");
-    sendSystemMessage(roomCode, "Oyun başlatılıyor...");
-    setTimeout(() => {
-      broadcastPhase(roomCode);
-      broadcastRoomList();
-    }, 3000);
-  });
+  // 1) CASE SEÇİLMİŞ Mİ?
+  if (!room.currentCaseId || !room.puzzle) {
+    socket.emit("lobbyMessage", "Oyunu başlatmadan önce bir vaka seçmelisin.");
+    return;
+  }
+
+  // 2) TÜM OYUNCULAR ROL SEÇİP HAZIR OLMUŞ MU?
+  if (!allLobbyReady(roomCode)) {
+    socket.emit(
+      "lobbyMessage",
+      "Tüm oyuncular hem rol seçmiş hem de hazır olmuş olmalı."
+    );
+    return;
+  }
+
+  // 3) OYUNU BAŞLAT
+  room.currentPhase = 1;
+  io.to(roomCode).emit("gameStarting");
+  sendSystemMessage(roomCode, "Oyun başlatılıyor...");
+
+  setTimeout(() => {
+    broadcastPhase(roomCode);
+    broadcastRoomList();
+  }, 3000);
+});
+
+  
 
   // Faz hazır
   socket.on("phaseReady", ({ phase }) => {
