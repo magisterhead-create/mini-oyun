@@ -35,6 +35,14 @@ const roleSelectOverlay = document.getElementById("roleSelectOverlay");
 const overlayCloseBtn1 = document.getElementById("overlayCloseBtn1");
 const overlayCloseBtn2 = document.getElementById("overlayCloseBtn2");
 const roleOverlayCloseBtn = document.getElementById("roleOverlayCloseBtn");
+// Overlay butonları (güvenli bağlama)
+if (howToBtn) howToBtn.addEventListener("click", () => openOverlay("howto"));
+if (creditsBtn) creditsBtn.addEventListener("click", () => openOverlay("credits"));
+if (overlayCloseBtn1) overlayCloseBtn1.addEventListener("click", closeOverlay);
+if (overlayCloseBtn2) overlayCloseBtn2.addEventListener("click", closeOverlay);
+if (roleOverlayCloseBtn) roleOverlayCloseBtn.addEventListener("click", closeOverlay);
+if (caseOverlayCloseBtn) caseOverlayCloseBtn.addEventListener("click", closeOverlay);
+
 
 // Case overlay
 const caseSelectOverlay = document.getElementById("caseSelectOverlay");
