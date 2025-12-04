@@ -276,12 +276,22 @@
 <!-- YENİ OYUN EKRANI (GAME UI) -->
 <!-- ========================= -->
 
+<!-- YENİ OYUN EKRANI (GAME UI) -->
 <div class="section" id="gameScreen" style="display:none;">
 
-  <!-- Üst Bar: Süre + Rol Bilgisi -->
-  <div class="game-top-bar">
-    <div id="gameTimer">30:00</div>
-    <div id="gameRoleLabel"></div>
+  <!-- Üst Bar: Süre + Rol Bilgisi + Ana menü -->
+  <div class="game-top-bar" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+    <div style="display:flex; flex-direction:column; gap:2px;">
+      <div id="gameTimer">30:00</div>
+      <div id="gameRoleLabel" style="font-size:12px; color:var(--text-muted);"></div>
+    </div>
+
+    <button
+      id="backToMenuGameBtn"
+      class="btn-ghost btn-small"
+    >
+      Ana menüye dön
+    </button>
   </div>
 
   <!-- Orta Alan — Sekme İçerikleri -->
@@ -299,6 +309,7 @@
   </div>
 
 </div>
+
 
 
             <!-- Lobby Chat + Voice Controls -->
