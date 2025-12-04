@@ -617,6 +617,7 @@ const caseCards = document.querySelectorAll(".case-card");
 caseCards.forEach((card) => {
   card.addEventListener("click", function () {
     selectedCaseId = this.getAttribute("data-case-id");
+    highlightSelectedCase(selectedCaseId);
   });
 });
 
