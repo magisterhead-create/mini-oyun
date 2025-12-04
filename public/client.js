@@ -21,6 +21,7 @@ const gameSection = document.getElementById("gameScreen");
 const gameTimerDisplay = document.getElementById("gameTimer");
 const gameRoleLabel = document.getElementById("gameRoleLabel");
 const gameTabContent = document.getElementById("gameTabContent");
+const backToMenuGameBtn = document.getElementById("backToMenuGameBtn");
 
 const tabRoleMainBtn = document.getElementById("tabRoleBtn");
 const tabRoleSpecialBtn = document.getElementById("tabRoleActionBtn");
@@ -921,6 +922,13 @@ if (startGameBtn) {
 // Ana menüye dön (lobiden)
 if (backToMenuBtn) {
   backToMenuBtn.addEventListener("click", () => {
+    socket.emit("leaveRoom");
+    resetUIToMenu();
+  });
+}
+// Oyun ekranından ana menüye dön
+if (backToMenuGameBtn) {
+  backToMenuGameBtn.addEventListener("click", () => {
     socket.emit("leaveRoom");
     resetUIToMenu();
   });
