@@ -17,17 +17,21 @@ try {
 // =============================
 
 // --- Oyun ekranı (yeni UI) --- //
-const gameSection = document.getElementById("gameSection");
-const gameTimerDisplay = document.getElementById("gameTimerDisplay");
+const gameSection = document.getElementById("gameScreen");
+const gameTimerDisplay = document.getElementById("gameTimer");
 const gameRoleLabel = document.getElementById("gameRoleLabel");
+
 const gamePlayersList = document.getElementById("gamePlayersList");
 const gameTabContent = document.getElementById("gameTabContent");
-const backToMenuGameBtn = document.getElementById("backToMenuFromGameBtn");
+
+const backToMenuGameBtn = document.getElementById("backToMenuGameBtn");
+
 const tabRoleMainBtn = document.getElementById("tabRoleBtn");
 const tabRoleSpecialBtn = document.getElementById("tabRoleActionBtn");
 const tabSharedBoardBtn = document.getElementById("tabBoardBtn");
 const tabNotesBtn = document.getElementById("tabNotesBtn");
 const tabSettingsBtn = document.getElementById("tabSettingsBtn");
+
 
 // Menü
 const menuSection = document.getElementById("menuSection");
