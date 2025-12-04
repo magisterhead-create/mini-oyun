@@ -172,14 +172,15 @@ io.on("connection", (socket) => {
     const roomCode = generateRoomCode();
 
     rooms[roomCode] = {
-      hostId: socket.id,
-      roomName: roomName || `Oda ${roomCode}`,
-      password: password ? password : null,
-      currentPhase: 0,
-      currentCaseId: "restaurant_murder",
-      puzzle: cases["restaurant_murder"],
-      players: {}
-    };
+  hostId: socket.id,
+  roomName: roomName || `Oda ${roomCode}`,
+  password: password ? password : null,
+  currentPhase: 0,
+  currentCaseId: null,
+  puzzle: null,
+  players: {}
+};
+
 
     rooms[roomCode].players[socket.id] = {
   deviceId: deviceId || null,
@@ -279,6 +280,16 @@ io.on("connection", (socket) => {
     io.to(roomCode).emit("playersUpdate", {
       players: getPublicPlayers(roomCode)
     });
+    // Eğer odada daha önce vaka seçilmişse, yeni gelen oyuncuya bildir
+if (room.currentCaseId && room.puzzle) {
+  const c = room.puzzle;
+  socket.emit("caseSelected", {
+    caseId: room.currentCaseId,
+    title: c.title,
+    roles: c.roles
+  });
+}
+
 
     sendSystemMessage(roomCode, `${name || "Bir oyuncu"} odaya katıldı.`);
     io.to(roomCode).emit(
