@@ -107,9 +107,11 @@ const resultSection = document.getElementById("resultSection");
 const resultText = document.getElementById("resultText");
 
 // Lobby chat
+
 const chatMessages = document.getElementById("chatMessages");
 const chatInput = document.getElementById("chatInput");
 const chatSendBtn = document.getElementById("chatSendBtn");
+const chatPlayersList = document.getElementById("chatPlayersList");
 
 // Voice controls
 const joinVoiceBtn = document.getElementById("joinVoiceBtn");
@@ -1163,6 +1165,12 @@ socket.on("playersUpdate", (data) => {
   });
 
   if (playersList) playersList.innerHTML = listHtml || "Henüz kimse yok.";
+  if (gamePlayersList) {
+    gamePlayersList.innerHTML = listHtml || "Henüz kimse yok.";
+  }
+  if (chatPlayersList) {
+    chatPlayersList.innerHTML = listHtml || "Henüz kimse yok.";
+  }
 
   if (me && me.isHost && playersList) {
     const kickLinks = playersList.querySelectorAll(".kick-link");
