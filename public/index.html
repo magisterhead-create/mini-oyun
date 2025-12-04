@@ -206,46 +206,45 @@
 
             <!-- Setup -->
             <div class="lobby-setup">
-              <div class="lobby-setup-title">Setup</div>
+  <div class="lobby-setup-title">Setup</div>
 
-              <div class="setup-grid">
-                <div>
-                  <div class="label">Aktif rolün</div>
-                  <div
-                    id="myRoleInfo"
-                    style="font-size:13px; margin-top:4px;"
-                  ></div>
-                  <button
-                    id="openRoleSelectBtn"
-                    class="btn-secondary btn-small"
-                    style="margin-top:8px;"
-                    disabled
-                  >
-                    Rol Seç
-                  </button>
-                  <div
-                    id="roleError"
-                    class="message error"
-                    style="display:none;"
-                  ></div>
-                </div>
+  <div class="setup-grid">
+    <!-- 1. BLOK: Vaka seç (artık önce bu geliyor) -->
+    <div>
+      <div class="label">Vaka seç</div>
+      <button
+        id="selectCaseBtn"
+        class="btn-ghost btn-small"
+        style="margin-top:6px;"
+      >
+        Case seçiniz
+      </button>
+      <div class="setup-note">
+        Önce bir vaka seç, sonra rolünü belirle.
+      </div>
+    </div>
 
-                <div>
-                  <div class="label">Vaka seç</div>
-                  <button
-                    id="selectCaseBtn"
-                    class="btn-ghost btn-small"
-                    style="margin-top:6px;"
-                  >
-                    Case seçiniz
-                  </button>
-                  <div class="setup-note">
-                    Şimdilik tek vaka var. İleride farklı hikâyeler
-                    buradan seçilecek.
-                  </div>
-                </div>
-              </div>
-            </div>
+    <!-- 2. BLOK: Aktif rolün -->
+    <div>
+      <div class="label">Aktif rolün</div>
+      <div id="myRoleInfo" style="font-size:13px; margin-top:4px;"></div>
+      <button
+        id="openRoleSelectBtn"
+        class="btn-secondary btn-small"
+        style="margin-top:8px;"
+        disabled
+      >
+        Rol Seç
+      </button>
+      <div
+        id="roleError"
+        class="message error"
+        style="display:none;"
+      ></div>
+    </div>
+  </div>
+</div>
+
 
             <!-- Actions -->
             <div class="lobby-actions">
