@@ -313,6 +313,31 @@
 
 
             <!-- Lobby Chat + Voice Controls -->
+                        <!-- Lobby Chat + Voice Controls -->
+            <div class="section lobby-chat">
+              <div class="lobby-chat-header">Lobby Chat</div>
+
+              <!-- 🔹 Yeni: Chat içindeki oyuncu listesi -->
+              <div class="chat-players-box">
+                <div class="chat-players-title">Odadaki oyuncular</div>
+                <div id="chatPlayersList" class="chat-players-list">
+                  Henüz kimse yok.
+                </div>
+              </div>
+
+              <div id="chatMessages" class="chat-messages"></div>
+              <div class="chat-input-row">
+                <input
+                  id="chatInput"
+                  placeholder="Mesaj yaz..."
+                />
+                <button
+                  id="chatSendBtn"
+                  class="btn-primary btn-small"
+                >
+                  Gönder
+                </button>
+              </div>
             <div class="section lobby-chat">
               <div class="lobby-chat-header">Chat</div>
               <div id="chatMessages" class="chat-messages"></div>
