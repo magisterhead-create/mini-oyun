@@ -631,6 +631,13 @@ button:disabled {
   transform: translateY(-2px);
 }
 
+.case-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 10px 20px rgba(37,99,235,0.6);
+  transform: translateY(-2px);
+}
+
+
 .case-header {
   display: flex;
   gap: 10px;
