@@ -17,12 +17,25 @@ const cases = {
     id: "restaurant_murder",
     title: "Restoran Cinayeti",
     answer: "garson",
+    roles: ["dedektif", "polis"],
     phases: [
       "1. İpucu: Kurbanın telefonunda, olaydan kısa süre önce bir restoran garsonuyla yapılan mesajlaşmalar bulunuyor.",
       "2. İpucu: Olay anında, diğer personel ifade verirken garsonun kısa bir süre ortadan kaybolduğunu söylüyor.",
       "3. İpucu: Güvenlik kamerası kayıtlarında, garsonun olay saatine yakın bir zamanda mutfak kapısının yanında telaşla bir şeyi saklamaya çalıştığı görülüyor."
     ],
     finalQuestion: "Katil kim? (cevabı tek kelime olarak yaz)"
+  },
+  bank_heist: {
+    id: "bank_heist",
+    title: "Banka Soygunu",
+    answer: "kasiyer",
+    roles: ["ajan", "güvenlik"],   // ⭐ Bu case'in rollerini belirtiyoruz
+    phases: [
+      "1. İpucu: Banka kameralarında şüpheli bir kişi görülüyor.",
+      "2. İpucu: Soygun sırasında güvenlik sistemine müdahale edilmiş.",
+      "3. İpucu: Kasadaki para izi ajanlara göre içeriden biri."
+    ],
+    finalQuestion: "Soyguncu kim?"
   }
 };
 
@@ -319,26 +332,40 @@ io.on("connection", (socket) => {
 
   // Vaka seçimi (sadece host)
   socket.on("selectCase", ({ caseId }) => {
-    const roomCode = socket.data?.roomCode;
-    if (!roomCode || !rooms[roomCode]) return;
-    const room = rooms[roomCode];
+  const roomCode = socket.data?.roomCode;
+  if (!roomCode || !rooms[roomCode]) return;
 
-    if (socket.id !== room.hostId) return;
+  const room = rooms[roomCode];
+  if (socket.id !== room.hostId) return;
 
-    const c = cases[caseId];
-    if (!c) return;
+  const c = cases[caseId];
+  if (!c) return;
 
-    room.currentCaseId = caseId;
-    room.puzzle = c;
+  // Case'i değiştir
+  room.currentCaseId = caseId;
+  room.puzzle = c;
 
-    io.to(roomCode).emit("caseSelected", {
-      caseId,
-      title: c.title
-    });
-
-    sendSystemMessage(roomCode, `Seçilen vaka değiştirildi: ${c.title}`);
-    broadcastRoomList();
+  // Tüm oyuncuların rolünü sıfırla
+  Object.values(room.players).forEach((p) => {
+    p.role = null;
   });
+
+  // Odaya duyur
+  io.to(roomCode).emit("caseSelected", {
+    caseId,
+    title: c.title,
+    roles: c.roles
+  });
+
+  // Oyuncu listesi güncelle
+  io.to(roomCode).emit("playersUpdate", {
+    players: getPublicPlayers(roomCode)
+  });
+
+  sendSystemMessage(roomCode, `Vaka değiştirildi: ${c.title}`);
+  broadcastRoomList();
+});
+
 
   // Host oyunu başlat
   socket.on("startGame", () => {
