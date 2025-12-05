@@ -18,6 +18,79 @@ const cases = {
     title: "Restoran Cinayeti",
     answer: "garson",
     roles: ["dedektif", "polis"],
+
+    // 🔹 Arka plandaki cinayet dosyası (AI prompt için kullanılacak)
+    caseFile: `
+KURBAN
+- Ad: Ahmet Yılmaz
+- Meslek: Şehirde tanınan bir iş insanı, restoranın da düzenli müşterisi.
+- Ölüm: Restoranın arka bölümünde, yaklaşık 22:30 sularında bıçaklanarak öldürülmüş halde bulunuyor.
+- Önceki günlerde garsonla servis ve bahşiş konusu yüzünden tartıştığı biliniyor.
+
+OLAY YERİ
+- Olay, restoranın personel koridoru ile mutfak kapısının kesiştiği dar bir alanda gerçekleşmiş.
+- Güvenlik kamerası bu noktayı kör bir açıyla görüyor, tam cinayet anı net değil.
+- Kan izleri, kurbanın saldırı anında çok kısa bir direnç gösterdiğini düşündürüyor.
+
+ZAMAN ÇİZELGESİ (KISA)
+- 21:50: Kurban restorana geliyor.
+- 22:05: Garson ile masa seçimi ve servis konusunda kısa bir tartışma yaşanıyor.
+- 22:20: Kurban telefonla biriyle konuşurken sinirli tavırlar sergiliyor.
+- 22:28–22:32: Personel ifadelerine göre garson, "arka tarafa depoya bakmaya gittiğini" söylüyor.
+- 22:35: Kurban, tuvalete gitmek üzere masadan ayrılıyor ve bir daha dönmüyor.
+- 22:45: Kurban, arka koridorda yaralı halde bulunuyor; birkaç dakika içinde hayatını kaybediyor.
+
+DİĞER PERSONEL İFADELERİ (ÖZET)
+- Şef: O sırada mutfakta servis hazırladığını, garsonun birkaç dakika mutfaktan kaybolduğunu söylüyor.
+- Ortak: İşin başında olduğunu, kurbanla aralarında ciddi bir sorun olmadığını iddia ediyor, garsonun son günlerde gergin olduğunu belirtiyor.
+`,
+
+    // 🔹 Şüpheliler (AI'nin “canlandıracağı” karakterler)
+    suspects: [
+      {
+        id: "waiter",
+        name: "Mehmet Kaya",
+        roleLabel: "Garson",
+        persona: "Gergin ama kendini kurtarmaya çalışan, alt-orta gelirli bir çalışan. İşine muhtaç, otoriteden çekiniyor.",
+        facts: [
+          "Kurbanla daha önce bahşiş ve yoğunlukta çalışma temposu yüzünden tartışmaya girdi.",
+          "Olay saatine yakın birkaç dakikalığına ortadan kaybolduğunu kabul ediyor ama sebep olarak 'depo kontrolü' diyor.",
+          "Kamera kayıtlarında mutfak kapısının yanında telaşlı bir şekilde bir şeylerle uğraşırken görülüyor."
+        ],
+        secrets: [
+          "Son haftalarda ciddi borçları var ve gizli şekilde ek para arayışında.",
+          "Kurbanla son tartışmaları, küfürleşmeye varacak kadar ağır geçti.",
+          "Olay günü gerçekten kurbanla arka tarafta karşılaşıyor."
+        ],
+        attitude: `
+Başta her şeyi inkar etmeye çalış, olayı basite indir ve "ben sadece işimi yapıyordum" tonunda konuş.
+Polis olay saatine, kamera görüntülerine ve tartışmalara sıkı sıkıya vurgu yaparsa 
+yavaş yavaş çelişkiye düş ve küçük detayları itiraf etmeye başla.
+Kendini asla doğrudan "katil" olarak ilan etme ama baskı arttığında çok sinirlendiğini kabul edebilirsin.
+        `
+      },
+      {
+        id: "chef",
+        name: "Hakan Demir",
+        roleLabel: "Şef",
+        persona: "İşkolik, detaycı, stresli ama kendine güvenen baş aşçı. Restoranın başarısını kendine mal ediyor.",
+        facts: [
+          "Olay anında mutfakta olduğunu söylüyor.",
+          "Garsonun kısa süreliğine ortadan kaybolduğunu fark etti.",
+          "Kurbanla aralarında doğrudan bir problem yok."
+        ],
+        secrets: [
+          "Restoran ortağıyla gizli gerilimler yaşıyor; maliyetler ve menü konusunda kavgalılar.",
+          "Garsonun hatalarını zaman zaman sert şekilde eleştiriyor."
+        ],
+        attitude: `
+Çoğunlukla kendinden emin ve soğukkanlı ol.
+Garsonu hafifçe suçlayıcı konuş, ama asıl derdinin "mutfağın düzeni" olduğunu vurgula.
+Polis çok derine inmedikçe kendi özel problemlerini açma.
+        `
+      }
+    ],
+
     phases: [
       "1. İpucu: Kurbanın telefonunda, olaydan kısa süre önce bir restoran garsonuyla yapılan mesajlaşmalar bulunuyor.",
       "2. İpucu: Olay anında, diğer personel ifade verirken garsonun kısa bir süre ortadan kaybolduğunu söylüyor.",
@@ -25,6 +98,7 @@ const cases = {
     ],
     finalQuestion: "Katil kim? (cevabı tek kelime olarak yaz)"
   },
+  
   bank_heist: {
     id: "bank_heist",
     title: "Banka Soygunu",
@@ -385,10 +459,16 @@ if (room.sharedBoard) {
 
   // Odaya duyur
   io.to(roomCode).emit("caseSelected", {
-    caseId,
-    title: c.title,
-    roles: c.roles
-  });
+  caseId,
+  title: c.title,
+  roles: c.roles,
+  suspects: (c.suspects || []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    roleLabel: s.roleLabel
+  }))
+});
+
 
   // Oyuncu listesi güncelle
   io.to(roomCode).emit("playersUpdate", {
