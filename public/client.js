@@ -139,6 +139,11 @@ let currentCaseRoles = [];
 let lastPingMs = null;
 let pingIntervalId = null;
 
+// Sorgu sistemi (polis)
+let currentCaseSuspects = [];          // caseSelected ile gelecek şüpheliler
+let currentSuspectId = null;           // şu an seçili şüpheli
+let interrogationHistory = {};         // { suspectId: [ { from: "player"|"suspect", text: "" }, ... ] }
+
 // Voice / WebRTC
 let localAudioStream = null;
 let peers = {}; // peerId -> RTCPeerConnection
@@ -537,13 +542,113 @@ function renderCurrentTab() {
       </p>
     `;
   } else if (currentGameTab === "roleSpecial") {
-    const specialLabel = cfg ? cfg.specialTabLabel : "Özel Görev";
-    gameTabContent.innerHTML = `
-      <h3>${specialLabel}</h3>
-      <p style="font-size:13px; color: var(--text-muted);">
-        Bu rolde sana özel görevler burada görünecek. Şimdilik placeholder.
-      </p>
-    `;
+    // 🔹 POLİS İSE SORGU SEKME İÇERİĞİ
+    if (myRole === "polis") {
+      // Şüpheli listesi HTML
+      const suspectsHtml = (currentCaseSuspects || [])
+        .map((s) => {
+          const isActive = s.id === currentSuspectId;
+          return `
+            <div class="case-card ${isActive ? "selected" : ""}" data-suspect-id="${s.id}">
+              <div class="case-title">${s.name} <span style="font-size:11px; color:var(--text-muted);">· ${s.roleLabel || "Şüpheli"}</span></div>
+              <div class="case-meta">Üzerine tıklayıp sorgulamaya başla.</div>
+            </div>
+          `;
+        })
+        .join("") || `
+          <div class="setup-note">
+            Bu vakada tanımlı şüpheli bulunamadı. (Backend'e suspects eklemelisin.)
+          </div>
+        `;
+
+      // Seçili şüphelinin chat geçmişi
+      const history = (currentSuspectId && interrogationHistory[currentSuspectId]) || [];
+      const chatHtml = history
+        .map((m) => {
+          const cls =
+            m.from === "player"
+              ? 'style="text-align:right; margin-bottom:4px; font-size:13px;"'
+              : 'style="text-align:left; margin-bottom:4px; font-size:13px;"';
+          const label = m.from === "player" ? "Sen" : "Şüpheli";
+          return `<div ${cls}><strong>${label}:</strong> ${m.text}</div>`;
+        })
+        .join("") || `
+          <div class="setup-note">
+            Henüz soru sormadın. Aşağıya bir soru yazıp gönder, şüpheli cevap verecek.
+          </div>
+        `;
+
+      gameTabContent.innerHTML = `
+        <h3>Sorgu Odası</h3>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">
+          Şüphelilerden birini seç ve olayla ilgili sorular sor. Dava dışı saçma sorular sorarsan
+          şüpheli seni tersleyebilir.
+        </p>
+
+        <div class="players-box" style="margin-bottom:8px; max-height:150px; overflow-y:auto;">
+          ${suspectsHtml}
+        </div>
+
+        <div class="players-box" style="margin-bottom:8px; max-height:180px; overflow-y:auto;">
+          ${chatHtml}
+        </div>
+
+        <div style="display:flex; gap:6px; margin-top:4px;">
+          <input
+            id="interrogationInput"
+            placeholder="Şüpheliye sorunu yaz..."
+            style="margin-top:0; flex:1;"
+          />
+          <button id="interrogationSendBtn" class="btn-primary btn-small">
+            Sor
+          </button>
+        </div>
+        <div class="setup-note" style="margin-top:4px;">
+          Sadece bu vakayla ilgili, mantıklı sorular sor. İtirafı koparmaya çalış.
+        </div>
+      `;
+
+      // Event binding
+      const suspectCards = gameTabContent.querySelectorAll("[data-suspect-id]");
+      suspectCards.forEach((el) => {
+        el.addEventListener("click", () => {
+          const id = el.getAttribute("data-suspect-id");
+          currentSuspectId = id;
+          renderCurrentTab(); // seçimi güncelle ve chat'i o şüpheliye göre göster
+        });
+      });
+
+      const inputEl = document.getElementById("interrogationInput");
+      const sendBtn = document.getElementById("interrogationSendBtn");
+
+      if (sendBtn && inputEl) {
+        // Seçili şüpheli yoksa butonu kilitle
+        if (!currentSuspectId) {
+          sendBtn.disabled = true;
+          inputEl.disabled = true;
+        }
+
+        sendBtn.addEventListener("click", () => {
+          sendInterrogationQuestion();
+        });
+
+        inputEl.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            sendInterrogationQuestion();
+          }
+        });
+      }
+    } else {
+      // Diğer roller için eski placeholder
+      const specialLabel = cfg ? cfg.specialTabLabel : "Özel Görev";
+      gameTabContent.innerHTML = `
+        <h3>${specialLabel}</h3>
+        <p style="font-size:13px; color: var(--text-muted);">
+          Bu rolde sana özel görevler burada görünecek. Şimdilik placeholder.
+        </p>
+      `;
+    }
   } else if (currentGameTab === "sharedBoard") {
     gameTabContent.innerHTML = `
       <div class="label">Ortak Tahta</div>
@@ -599,6 +704,39 @@ function renderCurrentTab() {
         Bu alanı ileride oyun içi ayarlar için kullanacağız.
       </p>
     `;
+  }
+}
+function sendInterrogationQuestion() {
+  if (myRole !== "polis") return;
+  if (!currentSuspectId) return;
+
+  const inputEl = document.getElementById("interrogationInput");
+  if (!inputEl) return;
+
+  const text = (inputEl.value || "").trim();
+  if (!text) return;
+
+  // local history'ye oyuncu mesajını ekle
+  if (!interrogationHistory[currentSuspectId]) {
+    interrogationHistory[currentSuspectId] = [];
+  }
+  interrogationHistory[currentSuspectId].push({
+    from: "player",
+    text
+  });
+
+  // server'a gönder
+  socket.emit("policeInterrogate", {
+    suspectId: currentSuspectId,
+    question: text,
+    history: interrogationHistory[currentSuspectId]
+  });
+
+  inputEl.value = "";
+
+  // UI'yi güncelle (mesajı hemen gör)
+  if (currentGameTab === "roleSpecial" && myRole === "polis") {
+    renderCurrentTab();
   }
 }
 
@@ -1218,6 +1356,11 @@ socket.on("caseSelected", (data) => {
   currentCaseRoles = data.roles || [];
   selectedCaseId = data.caseId || null;
   highlightSelectedCase(selectedCaseId);
+  
+  // 🔹 ŞÜPHELİ LİSTESİ (polis sorgu sekmesi için)
+  currentCaseSuspects = data.suspects || [];
+  interrogationHistory = {};                               // yeni vakada temizle
+  currentSuspectId = currentCaseSuspects[0]?.id || null;   // varsa ilk şüpheliyi seçili yap
 
   // rol seç butonu aktif
   if (openRoleSelectBtn) openRoleSelectBtn.disabled = false;
@@ -1390,6 +1533,23 @@ socket.on("pongCheck", (data) => {
 // Chat mesajı
 socket.on("chatMessage", (data) => {
   addChatMessage(data);
+});
+socket.on("interrogationReply", (data) => {
+  const { suspectId, answer } = data || {};
+  if (!suspectId || !answer) return;
+
+  if (!interrogationHistory[suspectId]) {
+    interrogationHistory[suspectId] = [];
+  }
+  interrogationHistory[suspectId].push({
+    from: "suspect",
+    text: answer
+  });
+
+  // Eğer şu an sorgu sekmesindeysek ekranı yenile
+  if (currentGameTab === "roleSpecial" && myRole === "polis") {
+    renderCurrentTab();
+  }
 });
 
 // Voice signaling
