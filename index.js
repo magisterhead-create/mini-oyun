@@ -235,6 +235,20 @@ function sendSystemMessage(roomCode, text) {
   });
 }
 
+function normalize(str) { ... }
+function generateRoomCode() { ... }
+// vs. mevcut fonksiyonlar
+
+// 🔹 Şimdilik sahte cevap üreten helper (sonra buraya OpenAI bağlarız)
+function mockSuspectReply({ caseData, suspect, question, history }) {
+  return `
+[${suspect.name}]:
+Bu sadece test cevabı.
+Bana şu soruyu sordun: "${question}"
+Gerçekte burada cinayet dosyasına göre daha detaylı bir yanıt üreteceğim.
+  `.trim();
+}
+
 // --------- SOCKET.IO --------- //
 
 io.on("connection", (socket) => {
@@ -253,6 +267,7 @@ io.on("connection", (socket) => {
   currentCaseId: null,
   puzzle: null,
   sharedBoard: "",    // ⭐ ortak tahta metni
+  interrogations: {}, // key: `${playerId}:${suspectId}` -> mesaj listesi
   players: {}
 };
 
@@ -282,6 +297,8 @@ io.on("connection", (socket) => {
     sendSystemMessage(roomCode, `${name || "Bir oyuncu"} odayı oluşturdu.`);
     broadcastRoomList();
   });
+
+  
   // Ortak tahta güncelleme
 socket.on("updateSharedBoard", ({ content }) => {
   const roomCode = socket.data?.roomCode;
@@ -457,6 +474,8 @@ if (room.sharedBoard) {
     p.role = null;
   });
 
+    
+
   // Odaya duyur
   io.to(roomCode).emit("caseSelected", {
   caseId,
@@ -477,6 +496,43 @@ if (room.sharedBoard) {
 
   sendSystemMessage(roomCode, `Vaka değiştirildi: ${c.title}`);
   broadcastRoomList();
+});
+// 🔻 POLİS SORGU EVENTİ
+socket.on("policeInterrogate", async ({ suspectId, question, history }) => {
+  const roomCode = socket.data?.roomCode;
+  if (!roomCode || !rooms[roomCode]) return;
+
+  const room = rooms[roomCode];
+  const player = room.players[socket.id];
+  if (!player) return;
+
+  // Sadece polis sorgu yapabilsin
+  if (player.role !== "polis") {
+    return;
+  }
+
+  const c = room.puzzle;
+  if (!c || !c.suspects) return;
+
+  const suspect = c.suspects.find((s) => s.id === suspectId);
+  if (!suspect) return;
+
+  const q = (question || "").trim();
+  if (!q) return;
+
+  const answerText = mockSuspectReply({
+    caseData: c,
+    suspect,
+    question: q,
+    history: history || []
+  });
+
+  // İstersen ileride room.interrogations içinde de biriktirebilirsin
+
+  socket.emit("interrogationReply", {
+    suspectId,
+    answer: answerText
+  });
 });
 
 
