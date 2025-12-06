@@ -17,14 +17,15 @@ try {
 // =============================
 
 // --- Oyun ekranı (yeni UI) --- //
-const gameSection = document.getElementById("gameScreen");
-const gameTimerDisplay = document.getElementById("gameTimer");
+const gameSection = document.getElementById("gameSection");
+const gameTimerDisplay = document.getElementById("gameTimerDisplay");
 const gameRoleLabel = document.getElementById("gameRoleLabel");
 
 const gamePlayersList = document.getElementById("gamePlayersList");
 const gameTabContent = document.getElementById("gameTabContent");
 
-const backToMenuGameBtn = document.getElementById("backToMenuGameBtn");
+const backToMenuGameBtn = document.getElementById("backToMenuFromGameBtn");
+
 
 const tabRoleMainBtn = document.getElementById("tabRoleBtn");
 const tabRoleSpecialBtn = document.getElementById("tabRoleActionBtn");
@@ -1360,7 +1361,11 @@ socket.on("caseSelected", (data) => {
   // 🔹 ŞÜPHELİ LİSTESİ (polis sorgu sekmesi için)
   currentCaseSuspects = data.suspects || [];
   interrogationHistory = {};                               // yeni vakada temizle
-  currentSuspectId = currentCaseSuspects[0]?.id || null;   // varsa ilk şüpheliyi seçili yap
+  if (currentCaseSuspects && currentCaseSuspects.length > 0) {
+  currentSuspectId = currentCaseSuspects[0].id;
+} else {
+  currentSuspectId = null;
+}   // varsa ilk şüpheliyi seçili yap
 
   // rol seç butonu aktif
   if (openRoleSelectBtn) openRoleSelectBtn.disabled = false;
