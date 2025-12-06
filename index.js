@@ -2,6 +2,11 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const OpenAI = require("openai");
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 const app = express();
 const server = http.createServer(app);
@@ -366,6 +371,90 @@ function mockSuspectReply({ caseData, suspect, question, history }) {
   // 7) Genel fallback
   return `Sorunu tam anlamadım ama ${caseTitle} gecesi olanları zaten detaylı anlattım. Ne bilmek istiyorsan daha açık sor, ben de bildiğimi söyleyeyim.`;
 }
+// 🔹 OpenAI tabanlı gerçek sorgu cevabı
+async function generateAiSuspectReply({ caseData, suspect, question, history }) {
+  const qOriginal = (question || "").trim();
+  const historyArr = Array.isArray(history) ? history : [];
+
+  const caseTitle = caseData?.title || "bu olay";
+  const caseFile = caseData?.caseFile || "";
+  const suspectName = suspect?.name || "Şüpheli";
+  const roleLabel = suspect?.roleLabel || "şüpheli";
+
+  const factsText = (suspect.facts || [])
+    .map((f) => `- ${f}`)
+    .join("\n");
+
+  const secretsText = (suspect.secrets || [])
+    .map((s) => `- ${s}`)
+    .join("\n");
+
+  const historyText = historyArr
+    .map((m) => {
+      const from = m.from === "player" ? "POLİS" : "ŞÜPHELİ";
+      return `${from}: ${m.text}`;
+    })
+    .join("\n");
+
+  const systemPrompt = `
+Sen bir dedektiflik oyununda canlandırılan bir şüphelisin.
+Görevlerin:
+
+- Her zaman TÜRKÇE konuş.
+- Sadece bu oyun vakasının içindeki bilgilerle tutarlı cevap ver.
+- Gerçek bir insan sorgudaymış gibi cevap ver: kaçamak, sinirli, savunmacı olabilirsin ama tamamen alakasız saçmalama.
+- "Gizli bilgiler" kısmındaki maddeleri ASLA direkt olarak, açıkça itiraf etme. Polis çok bastırır, mantıklı ve olayla ilgili sorular sorarsa yavaş yavaş çelişkilere düşebilir, küçük parçalar itiraf edebilirsin.
+- Kendini META şekilde "ben bir yapay zekayım" diye tanıtma. Sadece karakter olarak konuş.
+- Cevaplarını 1–3 kısa paragraf arasında tut. Roman yazma.
+
+Eğer polis olayla tamamen alakasız, saçma sorular sorarsa:
+- Kibar veya gergin bir şekilde "Olayla ilgili soru sorarsan yardımcı olurum" tarzında uyar.
+- Konuyu tekrar cinayet vakasına veya olaya çekmeye çalış.
+  `.trim();
+
+  const suspectContext = `
+VAKA: ${caseTitle}
+
+VAKA DOSYASI (özet / ipuçları):
+${caseFile}
+
+ŞÜPHELİ PROFİLİ:
+- İsim: ${suspectName}
+- Rol: ${roleLabel}
+- Kişilik: ${suspect.persona || "Belirsiz"}
+
+BİLİNEN GERÇEKLER (polis bunları sorguda öğrenebilir):
+${factsText || "- (tanımlı hakikat yok)"}
+
+GİZLİ GERÇEKLER (bunlar arka plan, şüpheli bunları kolay kolay söylemez):
+${secretsText || "- (tanımlı sır yok)"}
+
+ÖNCEKİ SORGU GEÇMİŞİ:
+${historyText || "(Polis daha önce soru sormadı.)"}
+  `.trim();
+
+  const userPrompt = `
+Polisin yeni sorusu:
+"${qOriginal}"
+
+Yukarıdaki vaka ve karakter bilgisine göre, ${suspectName} karakteri gibi cevap ver.
+  `.trim();
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4.1-mini", // ucuz ve hızlı model
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: suspectContext },
+      { role: "user", content: userPrompt }
+    ],
+    max_tokens: 220,
+    temperature: 0.7
+  });
+
+  const answer = response.choices?.[0]?.message?.content || "";
+  return answer.trim();
+}
+
 
 // --------- SOCKET.IO --------- //
 
@@ -619,43 +708,58 @@ io.on("connection", (socket) => {
     broadcastRoomList();
   });
 
-  // 🔻 POLİS SORGU EVENTİ
-  socket.on("policeInterrogate", async ({ suspectId, question, history }) => {
-    const roomCode = socket.data?.roomCode;
-    if (!roomCode || !rooms[roomCode]) return;
+ // 🔻 POLİS SORGU EVENTİ
+socket.on("policeInterrogate", async ({ suspectId, question, history }) => {
+  const roomCode = socket.data?.roomCode;
+  if (!roomCode || !rooms[roomCode]) return;
 
-    const room = rooms[roomCode];
-    const player = room.players[socket.id];
-    if (!player) return;
+  const room = rooms[roomCode];
+  const player = room.players[socket.id];
+  if (!player) return;
 
-    // Sadece polis sorgu yapabilsin
-    if (player.role !== "polis") {
-      return;
-    }
+  // Sadece polis sorgu yapabilsin
+  if (player.role !== "polis") {
+    return;
+  }
 
-    const c = room.puzzle;
-    if (!c || !c.suspects) return;
+  const c = room.puzzle;
+  if (!c || !c.suspects) return;
 
-    const suspect = c.suspects.find((s) => s.id === suspectId);
-    if (!suspect) return;
+  const suspect = c.suspects.find((s) => s.id === suspectId);
+  if (!suspect) return;
 
-    const q = (question || "").trim();
-    if (!q) return;
+  const q = (question || "").trim();
+  if (!q) return;
 
-    const answerText = mockSuspectReply({
+  let answerText;
+
+  try {
+    // ⭐ Asıl AI cevabı
+    answerText = await generateAiSuspectReply({
       caseData: c,
       suspect,
       question: q,
       history: history || []
     });
+  } catch (err) {
+    console.error("AI sorgu cevabı üretilirken hata:", err);
 
-    // İleride istersen room.interrogations içinde de biriktirebilirsin
-
-    socket.emit("interrogationReply", {
-      suspectId,
-      answer: answerText
+    // ⭐ Hata olursa rule-based mock'a düş
+    answerText = mockSuspectReply({
+      caseData: c,
+      suspect,
+      question: q,
+      history: history || []
     });
+  }
+
+  // Cevabı istemciye gönder
+  socket.emit("interrogationReply", {
+    suspectId,
+    answer: answerText
   });
+});
+
 
   // Host oyunu başlat
   socket.on("startGame", () => {
