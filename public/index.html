@@ -156,7 +156,7 @@
           </div>
         </div>
 
-        <!-- 3) LOBBY & OYUN -->
+                <!-- 3) LOBBY & OYUN -->
         <div class="lobby-layout" id="lobbyLayout" style="display:none;">
           <!-- LOBBY -->
           <div class="section" id="lobbySection" style="display:none;">
@@ -206,45 +206,44 @@
 
             <!-- Setup -->
             <div class="lobby-setup">
-  <div class="lobby-setup-title">Setup</div>
+              <div class="lobby-setup-title">Setup</div>
 
-  <div class="setup-grid">
-    <!-- 1. BLOK: Vaka seç (artık önce bu geliyor) -->
-    <div>
-      <div class="label">Vaka seç</div>
-      <button
-        id="selectCaseBtn"
-        class="btn-ghost btn-small"
-        style="margin-top:6px;"
-      >
-        Case seçiniz
-      </button>
-      <div class="setup-note">
-        Önce bir vaka seç, sonra rolünü belirle.
-      </div>
-    </div>
+              <div class="setup-grid">
+                <!-- 1. BLOK: Vaka seç -->
+                <div>
+                  <div class="label">Vaka seç</div>
+                  <button
+                    id="selectCaseBtn"
+                    class="btn-ghost btn-small"
+                    style="margin-top:6px;"
+                  >
+                    Case seçiniz
+                  </button>
+                  <div class="setup-note">
+                    Önce bir vaka seç, sonra rolünü belirle.
+                  </div>
+                </div>
 
-    <!-- 2. BLOK: Aktif rolün -->
-    <div>
-      <div class="label">Aktif rolün</div>
-      <div id="myRoleInfo" style="font-size:13px; margin-top:4px;"></div>
-      <button
-        id="openRoleSelectBtn"
-        class="btn-secondary btn-small"
-        style="margin-top:8px;"
-        disabled
-      >
-        Rol Seç
-      </button>
-      <div
-        id="roleError"
-        class="message error"
-        style="display:none;"
-      ></div>
-    </div>
-  </div>
-</div>
-
+                <!-- 2. BLOK: Aktif rolün -->
+                <div>
+                  <div class="label">Aktif rolün</div>
+                  <div id="myRoleInfo" style="font-size:13px; margin-top:4px;"></div>
+                  <button
+                    id="openRoleSelectBtn"
+                    class="btn-secondary btn-small"
+                    style="margin-top:8px;"
+                    disabled
+                  >
+                    Rol Seç
+                  </button>
+                  <div
+                    id="roleError"
+                    class="message error"
+                    style="display:none;"
+                  ></div>
+                </div>
+              </div>
+            </div>
 
             <!-- Actions -->
             <div class="lobby-actions">
@@ -270,159 +269,117 @@
             ></div>
           </div>
 
-          <!-- PHASES / FINAL / RESULT + CHAT -->
+          <!-- SAĞ SÜTUN: OYUN + CHAT -->
           <div class="right-column">
-           <!-- ========================= -->
-<!-- YENİ OYUN EKRANI (GAME UI) -->
-<!-- ========================= -->
 
-<!-- YENİ OYUN EKRANI (GAME UI) -->
-<div class="section" id="gameScreen" style="display:none;">
+            <!-- YENİ OYUN EKRANI (GAME UI) -->
+            <div class="section" id="gameSection" style="display:none;">
+              <div class="game-top-bar" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                  <div id="gameTimerDisplay">30:00</div>
+                  <div id="gameRoleLabel" style="font-size:12px; color:var(--text-muted);"></div>
+                </div>
 
-  <!-- Üst Bar: Süre + Rol Bilgisi + Ana menü -->
-  <div class="game-top-bar" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-    <div style="display:flex; flex-direction:column; gap:2px;">
-      <div id="gameTimer">30:00</div>
-      <div id="gameRoleLabel" style="font-size:12px; color:var(--text-muted);"></div>
-    </div>
+                <button
+                  id="backToMenuFromGameBtn"
+                  class="btn-ghost btn-small"
+                >
+                  Ana menüye dön
+                </button>
+              </div>
 
-    <button
-      id="backToMenuGameBtn"
-      class="btn-ghost btn-small"
-    >
-      Ana menüye dön
-    </button>
-  </div>
+              <!-- Orta Alan — Sekme İçerikleri -->
+              <div id="gameTabContent" class="game-content-box">
+                Lütfen bir sekme seçin.
+              </div>
 
-  <!-- Orta Alan — Sekme İçerikleri -->
-  <div id="gameTabContent" class="game-content-box">
-    Lütfen bir sekme seçin.
-  </div>
+              <!-- Alt Sekme Menüsü -->
+              <div class="game-tabs">
+                <button
+                  class="game-tab-btn active"
+                  id="tabRoleMainBtn"
+                  data-tab="roleMain"
+                >
+                  Rol
+                </button>
+                <button
+                  class="game-tab-btn"
+                  id="tabRoleSpecialBtn"
+                  data-tab="roleSpecial"
+                >
+                  Görev
+                </button>
+                <button
+                  class="game-tab-btn"
+                  id="tabSharedBoardBtn"
+                  data-tab="sharedBoard"
+                >
+                  Ortak Tahta
+                </button>
+                <button
+                  class="game-tab-btn"
+                  id="tabNotesBtn"
+                  data-tab="notes"
+                >
+                  Notlar
+                </button>
+                <button
+                  class="game-tab-btn"
+                  id="tabSettingsBtn"
+                  data-tab="settings"
+                >
+                  Ayarlar
+                </button>
+              </div>
+            </div>
 
-  <!-- Alt Sekme Menüsü -->
-  <div class="game-tabs">
-  <button class="game-tab-btn" id="tabRoleBtn" data-tab="roleMain">Rol</button>
-  <button class="game-tab-btn" id="tabRoleActionBtn" data-tab="roleSpecial">Görev</button>
-  <button class="game-tab-btn" id="tabBoardBtn" data-tab="sharedBoard">Ortak Tahta</button>
-  <button class="game-tab-btn" id="tabNotesBtn" data-tab="notes">Notlar</button>
-  <button class="game-tab-btn" id="tabSettingsBtn" data-tab="settings">Ayarlar</button>
-</div>
+            <!-- LOBBY CHAT + OYUNCU LİSTESİ + SES -->
+            <div class="section lobby-chat">
+              <div class="lobby-chat-header">Lobby Chat</div>
 
+              <div class="players-box-title" style="margin-bottom:4px;">
+                Odadaki oyuncular
+              </div>
+              <div id="gamePlayersList" class="players-box" style="margin-bottom:8px;">
+                Henüz kimse yok.
+              </div>
 
-</div>
+              <div id="chatMessages" class="chat-messages"></div>
 
+              <div class="chat-input-row">
+                <input id="chatInput" placeholder="Mesaj yaz..." />
+                <button id="chatSendBtn" class="btn-primary btn-small">
+                  Gönder
+                </button>
+              </div>
 
-
-           <!-- PHASES / FINAL / RESULT + CHAT -->
-<div class="right-column">
-
-  <!-- YENİ OYUN EKRANI (GAME UI) -->
-  <div class="section" id="gameSection" style="display:none;">
-    <div class="game-top-bar" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-      <div style="display:flex; flex-direction:column; gap:2px;">
-        <div id="gameTimerDisplay">30:00</div>
-        <div id="gameRoleLabel" style="font-size:12px; color:var(--text-muted);"></div>
-      </div>
-
-      <button
-        id="backToMenuFromGameBtn"
-        class="btn-ghost btn-small"
-      >
-        Ana menüye dön
-      </button>
-    </div>
-
-    <!-- Orta Alan — Sekme İçerikleri -->
-    <div id="gameTabContent" class="game-content-box">
-      Lütfen bir sekme seçin.
-    </div>
-
-    <!-- Alt Sekme Menüsü -->
-    <div class="game-tabs">
-      <button
-        class="game-tab-btn active"
-        id="tabRoleMainBtn"
-        data-tab="roleMain"
-      >
-        Rol
-      </button>
-      <button
-        class="game-tab-btn"
-        id="tabRoleSpecialBtn"
-        data-tab="roleSpecial"
-      >
-        Görev
-      </button>
-      <button
-        class="game-tab-btn"
-        id="tabSharedBoardBtn"
-        data-tab="sharedBoard"
-      >
-        Ortak Tahta
-      </button>
-      <button
-        class="game-tab-btn"
-        id="tabNotesBtn"
-        data-tab="notes"
-      >
-        Notlar
-      </button>
-      <button
-        class="game-tab-btn"
-        id="tabSettingsBtn"
-        data-tab="settings"
-      >
-        Ayarlar
-      </button>
-    </div>
-  </div>
-
-  <!-- LOBBY CHAT + OYUNCU LİSTESİ + SES -->
-  <div class="section lobby-chat">
-    <div class="lobby-chat-header">Lobby Chat</div>
-
-    <div class="players-box-title" style="margin-bottom:4px;">
-      Odadaki oyuncular
-    </div>
-    <div id="gamePlayersList" class="players-box" style="margin-bottom:8px;">
-      Henüz kimse yok.
-    </div>
-
-    <div id="chatMessages" class="chat-messages"></div>
-
-    <div class="chat-input-row">
-      <input id="chatInput" placeholder="Mesaj yaz..." />
-      <button id="chatSendBtn" class="btn-primary btn-small">
-        Gönder
-      </button>
-    </div>
-
-    <div class="voice-controls">
-      <span class="voice-label">
-        Sesli sohbet:
-      </span>
-      <div class="voice-buttons">
-        <button id="joinVoiceBtn" class="btn-secondary btn-small">
-          🎙️ Voice'a Katıl
-        </button>
-        <button
-          id="muteToggleBtn"
-          class="btn-ghost btn-small"
-          style="display:none;"
-        >
-          🔇 Mute
-        </button>
-        <button
-          id="leaveVoiceBtn"
-          class="btn-ghost btn-small"
-          style="display:none;"
-        >
-          📴 Sesten Ayrıl
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
+              <div class="voice-controls">
+                <span class="voice-label">
+                  Sesli sohbet:
+                </span>
+                <div class="voice-buttons">
+                  <button id="joinVoiceBtn" class="btn-secondary btn-small">
+                    🎙️ Voice'a Katıl
+                  </button>
+                  <button
+                    id="muteToggleBtn"
+                    class="btn-ghost btn-small"
+                    style="display:none;"
+                  >
+                    🔇 Mute
+                  </button>
+                  <button
+                    id="leaveVoiceBtn"
+                    class="btn-ghost btn-small"
+                    style="display:none;"
+                  >
+                    📴 Sesten Ayrıl
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
 
     <!-- OVERLAYS -->
