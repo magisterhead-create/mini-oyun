@@ -26,12 +26,12 @@ const gameTabContent = document.getElementById("gameTabContent");
 
 const backToMenuGameBtn = document.getElementById("backToMenuFromGameBtn");
 
-
-const tabRoleMainBtn = document.getElementById("tabRoleBtn");
-const tabRoleSpecialBtn = document.getElementById("tabRoleActionBtn");
-const tabSharedBoardBtn = document.getElementById("tabBoardBtn");
+const tabRoleMainBtn = document.getElementById("tabRoleMainBtn");
+const tabRoleSpecialBtn = document.getElementById("tabRoleSpecialBtn");
+const tabSharedBoardBtn = document.getElementById("tabSharedBoardBtn");
 const tabNotesBtn = document.getElementById("tabNotesBtn");
 const tabSettingsBtn = document.getElementById("tabSettingsBtn");
+
 
 
 // Menü
@@ -512,11 +512,12 @@ function setActiveTab(tabName) {
   buttons.forEach((btn) => {
     const id = btn.id;
     let thisTab = null;
-    if (id === "tabRoleBtn") thisTab = "roleMain";
-    else if (id === "tabRoleActionBtn") thisTab = "roleSpecial";
-    else if (id === "tabBoardBtn") thisTab = "sharedBoard";
-    else if (id === "tabNotesBtn") thisTab = "notes";
-    else if (id === "tabSettingsBtn") thisTab = "settings";
+   if (id === "tabRoleMainBtn") thisTab = "roleMain";
+else if (id === "tabRoleSpecialBtn") thisTab = "roleSpecial";
+else if (id === "tabSharedBoardBtn") thisTab = "sharedBoard";
+else if (id === "tabNotesBtn") thisTab = "notes";
+else if (id === "tabSettingsBtn") thisTab = "settings";
+
 
     if (thisTab === tabName) btn.classList.add("active");
     else btn.classList.remove("active");
