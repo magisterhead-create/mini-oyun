@@ -51,7 +51,8 @@ DİĞER PERSONEL İFADELERİ (ÖZET)
         id: "waiter",
         name: "Mehmet Kaya",
         roleLabel: "Garson",
-        persona: "Gergin ama kendini kurtarmaya çalışan, alt-orta gelirli bir çalışan. İşine muhtaç, otoriteden çekiniyor.",
+        persona:
+          "Gergin ama kendini kurtarmaya çalışan, alt-orta gelirli bir çalışan. İşine muhtaç, otoriteden çekiniyor.",
         facts: [
           "Kurbanla daha önce bahşiş ve yoğunlukta çalışma temposu yüzünden tartışmaya girdi.",
           "Olay saatine yakın birkaç dakikalığına ortadan kaybolduğunu kabul ediyor ama sebep olarak 'depo kontrolü' diyor.",
@@ -73,7 +74,8 @@ Kendini asla doğrudan "katil" olarak ilan etme ama baskı arttığında çok si
         id: "chef",
         name: "Hakan Demir",
         roleLabel: "Şef",
-        persona: "İşkolik, detaycı, stresli ama kendine güvenen baş aşçı. Restoranın başarısını kendine mal ediyor.",
+        persona:
+          "İşkolik, detaycı, stresli ama kendine güvenen baş aşçı. Restoranın başarısını kendine mal ediyor.",
         facts: [
           "Olay anında mutfakta olduğunu söylüyor.",
           "Garsonun kısa süreliğine ortadan kaybolduğunu fark etti.",
@@ -98,12 +100,12 @@ Polis çok derine inmedikçe kendi özel problemlerini açma.
     ],
     finalQuestion: "Katil kim? (cevabı tek kelime olarak yaz)"
   },
-  
+
   bank_heist: {
     id: "bank_heist",
     title: "Banka Soygunu",
     answer: "kasiyer",
-    roles: ["ajan", "güvenlik"],   // ⭐ Bu case'in rollerini belirtiyoruz
+    roles: ["ajan", "güvenlik"], // ⭐ Bu case'in rollerini belirtiyoruz
     phases: [
       "1. İpucu: Banka kameralarında şüpheli bir kişi görülüyor.",
       "2. İpucu: Soygun sırasında güvenlik sistemine müdahale edilmiş.",
@@ -119,14 +121,19 @@ const MAX_PLAYERS = 4;
 
 // rooms: roomCode -> {
 //   hostId, roomName, password, currentPhase, currentCaseId, puzzle,
+//   sharedBoard, interrogations,
 //   players: { socketId: {...} }
 // }
 const rooms = {};
 
 // --------- HELPERS --------- //
 
+// Cevap karşılaştırma ve sorgu analizi için normalize
 function normalize(str) {
-  return (str || "").trim().toLowerCase();
+  return (str || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
 function generateRoomCode() {
@@ -201,7 +208,7 @@ function sendRoomList(targetSocket = null) {
     const caseTitle =
       room.puzzle && room.puzzle.title
         ? room.puzzle.title
-        : (cases[room.currentCaseId]?.title || null);
+        : cases[room.currentCaseId]?.title || null;
 
     return {
       roomCode: code,
@@ -235,18 +242,129 @@ function sendSystemMessage(roomCode, text) {
   });
 }
 
-function normalize(str) { ... }
-function generateRoomCode() { ... }
-// vs. mevcut fonksiyonlar
-
-// 🔹 Şimdilik sahte cevap üreten helper (sonra buraya OpenAI bağlarız)
+/**
+ * Şüpheliye verilecek cevabı üretir.
+ * Şimdilik rule-based; ileride OpenAI entegrasyonu ile değiştirilebilir.
+ *
+ * @param {Object} params
+ * @param {Object} params.caseData - seçili vaka objesi
+ * @param {Object} params.suspect - seçilen şüpheli objesi
+ * @param {string} params.question - polisin sorusu
+ * @param {Array}  params.history - önceki soru-cevaplar [{from, text}, ...]
+ */
 function mockSuspectReply({ caseData, suspect, question, history }) {
-  return `
-[${suspect.name}]:
-Bu sadece test cevabı.
-Bana şu soruyu sordun: "${question}"
-Gerçekte burada cinayet dosyasına göre daha detaylı bir yanıt üreteceğim.
-  `.trim();
+  const qOriginal = (question || "").trim();
+  const q = normalize(qOriginal);
+  const h = Array.isArray(history) ? history : [];
+
+  const caseTitle = caseData?.title || "bu olay";
+  const suspectName = suspect?.name || "Ben";
+
+  // 1) Olayla alakasız, saçma sorular → tersle
+  const isAboutCase =
+    q.includes("cinayet") ||
+    q.includes("olay") ||
+    q.includes("gece") ||
+    q.includes("restoran") ||
+    q.includes("banka") ||
+    q.includes("soygun") ||
+    q.includes("kurban") ||
+    q.includes("saat") ||
+    q.includes("nerede") ||
+    q.includes("neredeydin") ||
+    q.includes("ifade") ||
+    q.includes("sorgu") ||
+    q.includes("koridor") ||
+    q.includes("mutfak");
+
+  if (!isAboutCase) {
+    const last3 = h.slice(-3).filter((m) => m.from === "player");
+    if (last3.length >= 2) {
+      return `Bak, buraya ${caseTitle} hakkında ifade vermeye geldim. Bu tarz sorulara cevap vermeyeceğim.`;
+    }
+    return "Olayla ilgili bir şey sorarsan yardımcı olurum. Bu soru davayla pek alakalı değil.";
+  }
+
+  // 2) Kimlik / rol
+  if (
+    q.includes("kimsin") ||
+    q.includes("ismin") ||
+    q.includes("adın") ||
+    q.includes("adiniz") ||
+    q.includes("gorevin") ||
+    q.includes("görevin") ||
+    q.includes("rolun") ||
+    q.includes("rolün") ||
+    q.includes("ne iş")
+  ) {
+    const roleLabel = suspect?.roleLabel || "olaydaki şüphelilerden biriyim";
+    return `${suspectName}. ${roleLabel}. Senden önce de birkaç kere ifade verdim zaten.`;
+  }
+
+  // 3) "Olay gecesi / o saatte neredeydin" soruları
+  if (
+    q.includes("neredeydin") ||
+    (q.includes("nerede") && q.includes("saat")) ||
+    q.includes("olay gecesi") ||
+    q.includes("olay sirasinda") ||
+    q.includes("olay sırasında")
+  ) {
+    if (caseData.id === "restaurant_murder") {
+      if (suspect.id === "waiter") {
+        return "Olayın olduğu saatlerde salonla mutfak arasında gidip geliyordum. Rezervasyonlu masalara servis yetiştirmeye çalışıyordum.";
+      } else if (suspect.id === "chef") {
+        return "Ben mutfaktaydım. Siparişler üst üste geliyordu, servis saatlerinde mutfaktan pek çıkmam.";
+      }
+    }
+
+    return "O saatte tam olarak yerimi hatırlamıyorum ama bütün gece buradaydım, binadan çıkmadım.";
+  }
+
+  // 4) Kurbanla ilişkisi
+  if (
+    q.includes("kurbanla") ||
+    q.includes("magdurla") ||
+    q.includes("mağdurla") ||
+    q.includes("ilişkin") ||
+    q.includes("aranizdaki iliski") ||
+    q.includes("aranızdaki ilişki")
+  ) {
+    return "Onu yıllardır tanırım ama öyle çok yakın sayılmayız. Aramızda büyük bir düşmanlık da yoktu, en azından benim açımdan.";
+  }
+
+  // 5) Motivasyon / para / tehdit
+  if (
+    q.includes("neden") ||
+    q.includes("niye") ||
+    q.includes("motivasyon") ||
+    q.includes("sebep") ||
+    q.includes("para") ||
+    q.includes("borc") ||
+    q.includes("borç") ||
+    q.includes("tehdit")
+  ) {
+    return "Bakın, benim bu işten çıkarım yok. Para için böyle bir şeye kalkışacak biri değilim. Üstüme yıkmaya çalışan biri varsa da bunu bulmanız gerekiyor.";
+  }
+
+  // 6) Sıkıştırma / yalan yakalama
+  const playerPressed =
+    q.includes("yalan") ||
+    q.includes("dogruyu soyle") ||
+    q.includes("doğruyu söyle") ||
+    q.includes("itiraf") ||
+    q.includes("sakladigin") ||
+    q.includes("sakladığın");
+
+  if (playerPressed) {
+    const suspectRepliesCount = h.filter((m) => m.from === "suspect").length;
+    if (suspectRepliesCount >= 3) {
+      return "Tamam, bazı şeyleri ilk başta söylemedim. Ama bu beni katil yapmaz. Detayları anlatırım, ama önce avukatım gelsin.";
+    }
+    return "Sinirlerinize hâkim olun, memur bey. Sana anlattıklarım zaten resmi ifadede de var.";
+  }
+
+  // 7) Genel fallback
+  return `Sorunu tam anlamadım ama ${caseTitle} gecesi olanları zaten detaylı anlattım. Ne bilmek istiyorsan daha açık sor, ben de bildiğimi söyleyeyim.`;
 }
 
 // --------- SOCKET.IO --------- //
@@ -260,30 +378,28 @@ io.on("connection", (socket) => {
     const roomCode = generateRoomCode();
 
     rooms[roomCode] = {
-  hostId: socket.id,
-  roomName: roomName || `Oda ${roomCode}`,
-  password: password ? password : null,
-  currentPhase: 0,
-  currentCaseId: null,
-  puzzle: null,
-  sharedBoard: "",    // ⭐ ortak tahta metni
-  interrogations: {}, // key: `${playerId}:${suspectId}` -> mesaj listesi
-  players: {}
-};
-
+      hostId: socket.id,
+      roomName: roomName || `Oda ${roomCode}`,
+      password: password ? password : null,
+      currentPhase: 0,
+      currentCaseId: null,
+      puzzle: null,
+      sharedBoard: "", // ⭐ ortak tahta metni
+      interrogations: {}, // key: `${playerId}:${suspectId}` -> mesaj listesi
+      players: {}
+    };
 
     rooms[roomCode].players[socket.id] = {
-  deviceId: deviceId || null,
-  id: socket.id,
-  name: name || "Anonim",
-  role: null,
-  readyPhase: 0,
-  lobbyReady: false,
-  answer: null,
-  inVoice: false,
-  listenOnly: false
-};
-
+      deviceId: deviceId || null,
+      id: socket.id,
+      name: name || "Anonim",
+      role: null,
+      readyPhase: 0,
+      lobbyReady: false,
+      answer: null,
+      inVoice: false,
+      listenOnly: false
+    };
 
     socket.join(roomCode);
     socket.data.roomCode = roomCode;
@@ -298,22 +414,20 @@ io.on("connection", (socket) => {
     broadcastRoomList();
   });
 
-  
   // Ortak tahta güncelleme
-socket.on("updateSharedBoard", ({ content }) => {
-  const roomCode = socket.data?.roomCode;
-  if (!roomCode || !rooms[roomCode]) return;
+  socket.on("updateSharedBoard", ({ content }) => {
+    const roomCode = socket.data?.roomCode;
+    if (!roomCode || !rooms[roomCode]) return;
 
-  const room = rooms[roomCode];
-  if (!room.players[socket.id]) return;
+    const room = rooms[roomCode];
+    if (!room.players[socket.id]) return;
 
-  room.sharedBoard = (content || "").slice(0, 5000); // güvenlik için limit
+    room.sharedBoard = (content || "").slice(0, 5000); // güvenlik için limit
 
-  io.to(roomCode).emit("sharedBoardUpdated", {
-    content: room.sharedBoard
+    io.to(roomCode).emit("sharedBoardUpdated", {
+      content: room.sharedBoard
+    });
   });
-});
-
 
   // Oda listesi isteği
   socket.on("getRoomList", () => {
@@ -363,17 +477,16 @@ socket.on("updateSharedBoard", ({ content }) => {
     }
 
     room.players[socket.id] = {
-  id: socket.id,
-  deviceId: deviceId || null,
-  name: name || "Anonim",
-  role: null,
-  readyPhase: 0,
-  lobbyReady: false,
-  answer: null,
-  inVoice: false,
-  listenOnly: false
-};
-
+      id: socket.id,
+      deviceId: deviceId || null,
+      name: name || "Anonim",
+      role: null,
+      readyPhase: 0,
+      lobbyReady: false,
+      answer: null,
+      inVoice: false,
+      listenOnly: false
+    };
 
     socket.join(roomCode);
     socket.data.roomCode = roomCode;
@@ -387,22 +500,28 @@ socket.on("updateSharedBoard", ({ content }) => {
     io.to(roomCode).emit("playersUpdate", {
       players: getPublicPlayers(roomCode)
     });
-    // Eğer odada daha önce vaka seçilmişse, yeni gelen oyuncuya bildir
-if (room.currentCaseId && room.puzzle) {
-  const c = room.puzzle;
-  socket.emit("caseSelected", {
-    caseId: room.currentCaseId,
-    title: c.title,
-    roles: c.roles
-  });
-}
-    // Eğer ortak tahta doluysa yeni gelene gönder
-if (room.sharedBoard) {
-  socket.emit("sharedBoardUpdated", {
-    content: room.sharedBoard
-  });
-}
 
+    // Eğer odada daha önce vaka seçilmişse, yeni gelen oyuncuya bildir
+    if (room.currentCaseId && room.puzzle) {
+      const c = room.puzzle;
+      socket.emit("caseSelected", {
+        caseId: room.currentCaseId,
+        title: c.title,
+        roles: c.roles,
+        suspects: (c.suspects || []).map((s) => ({
+          id: s.id,
+          name: s.name,
+          roleLabel: s.roleLabel
+        }))
+      });
+    }
+
+    // Eğer ortak tahta doluysa yeni gelene gönder
+    if (room.sharedBoard) {
+      socket.emit("sharedBoardUpdated", {
+        content: room.sharedBoard
+      });
+    }
 
     sendSystemMessage(roomCode, `${name || "Bir oyuncu"} odaya katıldı.`);
     io.to(roomCode).emit(
@@ -435,7 +554,9 @@ if (room.sharedBoard) {
     const room = rooms[roomCode];
     if (!room.players[socket.id]) return;
 
-    if (role !== "dedektif" && role !== "polis") {
+    // Şimdilik dört rolü destekliyoruz
+    const allowedRoles = ["dedektif", "polis", "ajan", "güvenlik"];
+    if (!allowedRoles.includes(role)) {
       return;
     }
 
@@ -444,7 +565,10 @@ if (room.sharedBoard) {
       (p) => p.role === role && p.id !== socket.id
     );
     if (used) {
-      socket.emit("roleError", "Bu rol zaten alınmış. Diğer rolü seçmeyi dene.");
+      socket.emit(
+        "roleError",
+        "Bu rol zaten alınmış. Diğer rolü seçmeyi dene."
+      );
       return;
     }
 
@@ -456,125 +580,123 @@ if (room.sharedBoard) {
 
   // Vaka seçimi (sadece host)
   socket.on("selectCase", ({ caseId }) => {
-  const roomCode = socket.data?.roomCode;
-  if (!roomCode || !rooms[roomCode]) return;
+    const roomCode = socket.data?.roomCode;
+    if (!roomCode || !rooms[roomCode]) return;
 
-  const room = rooms[roomCode];
-  if (socket.id !== room.hostId) return;
+    const room = rooms[roomCode];
+    if (socket.id !== room.hostId) return;
 
-  const c = cases[caseId];
-  if (!c) return;
+    const c = cases[caseId];
+    if (!c) return;
 
-  // Case'i değiştir
-  room.currentCaseId = caseId;
-  room.puzzle = c;
+    // Case'i değiştir
+    room.currentCaseId = caseId;
+    room.puzzle = c;
 
-  // Tüm oyuncuların rolünü sıfırla
-  Object.values(room.players).forEach((p) => {
-    p.role = null;
+    // Tüm oyuncuların rolünü sıfırla
+    Object.values(room.players).forEach((p) => {
+      p.role = null;
+    });
+
+    // Odaya duyur
+    io.to(roomCode).emit("caseSelected", {
+      caseId,
+      title: c.title,
+      roles: c.roles,
+      suspects: (c.suspects || []).map((s) => ({
+        id: s.id,
+        name: s.name,
+        roleLabel: s.roleLabel
+      }))
+    });
+
+    // Oyuncu listesi güncelle
+    io.to(roomCode).emit("playersUpdate", {
+      players: getPublicPlayers(roomCode)
+    });
+
+    sendSystemMessage(roomCode, `Vaka değiştirildi: ${c.title}`);
+    broadcastRoomList();
   });
 
-    
+  // 🔻 POLİS SORGU EVENTİ
+  socket.on("policeInterrogate", async ({ suspectId, question, history }) => {
+    const roomCode = socket.data?.roomCode;
+    if (!roomCode || !rooms[roomCode]) return;
 
-  // Odaya duyur
-  io.to(roomCode).emit("caseSelected", {
-  caseId,
-  title: c.title,
-  roles: c.roles,
-  suspects: (c.suspects || []).map((s) => ({
-    id: s.id,
-    name: s.name,
-    roleLabel: s.roleLabel
-  }))
-});
+    const room = rooms[roomCode];
+    const player = room.players[socket.id];
+    if (!player) return;
 
+    // Sadece polis sorgu yapabilsin
+    if (player.role !== "polis") {
+      return;
+    }
 
-  // Oyuncu listesi güncelle
-  io.to(roomCode).emit("playersUpdate", {
-    players: getPublicPlayers(roomCode)
+    const c = room.puzzle;
+    if (!c || !c.suspects) return;
+
+    const suspect = c.suspects.find((s) => s.id === suspectId);
+    if (!suspect) return;
+
+    const q = (question || "").trim();
+    if (!q) return;
+
+    const answerText = mockSuspectReply({
+      caseData: c,
+      suspect,
+      question: q,
+      history: history || []
+    });
+
+    // İleride istersen room.interrogations içinde de biriktirebilirsin
+
+    socket.emit("interrogationReply", {
+      suspectId,
+      answer: answerText
+    });
   });
-
-  sendSystemMessage(roomCode, `Vaka değiştirildi: ${c.title}`);
-  broadcastRoomList();
-});
-// 🔻 POLİS SORGU EVENTİ
-socket.on("policeInterrogate", async ({ suspectId, question, history }) => {
-  const roomCode = socket.data?.roomCode;
-  if (!roomCode || !rooms[roomCode]) return;
-
-  const room = rooms[roomCode];
-  const player = room.players[socket.id];
-  if (!player) return;
-
-  // Sadece polis sorgu yapabilsin
-  if (player.role !== "polis") {
-    return;
-  }
-
-  const c = room.puzzle;
-  if (!c || !c.suspects) return;
-
-  const suspect = c.suspects.find((s) => s.id === suspectId);
-  if (!suspect) return;
-
-  const q = (question || "").trim();
-  if (!q) return;
-
-  const answerText = mockSuspectReply({
-    caseData: c,
-    suspect,
-    question: q,
-    history: history || []
-  });
-
-  // İstersen ileride room.interrogations içinde de biriktirebilirsin
-
-  socket.emit("interrogationReply", {
-    suspectId,
-    answer: answerText
-  });
-});
-
 
   // Host oyunu başlat
   socket.on("startGame", () => {
-  const roomCode = socket.data?.roomCode;
-  if (!roomCode || !rooms[roomCode]) return;
+    const roomCode = socket.data?.roomCode;
+    if (!roomCode || !rooms[roomCode]) return;
 
-  const room = rooms[roomCode];
+    const room = rooms[roomCode];
 
-  // Host değilse izin yok
-  if (socket.id !== room.hostId) return;
+    // Host değilse izin yok
+    if (socket.id !== room.hostId) return;
 
-  // 1) CASE SEÇİLMİŞ Mİ?
-  if (!room.currentCaseId || !room.puzzle) {
-    socket.emit("lobbyMessage", "Oyunu başlatmadan önce bir vaka seçmelisin.");
-    return;
-  }
+    // 1) CASE SEÇİLMİŞ Mİ?
+    if (!room.currentCaseId || !room.puzzle) {
+      socket.emit(
+        "lobbyMessage",
+        "Oyunu başlatmadan önce bir vaka seçmelisin."
+      );
+      return;
+    }
 
-  // 2) TÜM OYUNCULAR ROL SEÇİP HAZIR OLMUŞ MU?
-  if (!allLobbyReady(roomCode)) {
-    socket.emit(
-      "lobbyMessage",
-      "Tüm oyuncular hem rol seçmiş hem de hazır olmuş olmalı."
-    );
-    return;
-  }
+    // 2) TÜM OYUNCULAR ROL SEÇİP HAZIR OLMUŞ MU?
+    if (!allLobbyReady(roomCode)) {
+      socket.emit(
+        "lobbyMessage",
+        "Tüm oyuncular hem rol seçmiş hem de hazır olmuş olmalı."
+      );
+      return;
+    }
 
-  // 3) OYUNU BAŞLAT
-  room.currentPhase = 1;
-  room.sharedBoard = "";
-io.to(roomCode).emit("sharedBoardUpdated", { content: room.sharedBoard });
-  io.to(roomCode).emit("gameStarting");
-  sendSystemMessage(roomCode, "Oyun başlatılıyor...");
+    // 3) OYUNU BAŞLAT
+    room.currentPhase = 1;
+    room.sharedBoard = "";
+    io.to(roomCode).emit("sharedBoardUpdated", { content: room.sharedBoard });
+    io.to(roomCode).emit("gameStarting");
+    sendSystemMessage(roomCode, "Oyun başlatılıyor...");
 
-  setTimeout(() => {
-    broadcastPhase(roomCode);
-    broadcastRoomList();
-  }, 3000);
-});
-
-  
+    setTimeout(() => {
+      broadcastPhase(roomCode);
+      broadcastRoomList();
+    }, 3000);
+  });
 
   // Faz hazır
   socket.on("phaseReady", ({ phase }) => {
@@ -616,17 +738,25 @@ io.to(roomCode).emit("sharedBoardUpdated", { content: room.sharedBoard });
 
     if (arr.every((p) => p.answer !== null)) {
       const correct = normalize(room.puzzle.answer);
-      const allCorrect = arr.every((p) => normalize(p.answer) === correct);
+      const allCorrect = arr.every(
+        (p) => normalize(p.answer) === correct
+      );
 
       if (allCorrect) {
         io.to(roomCode).emit("finalResult", {
           success: true,
           correctAnswer: room.puzzle.answer
         });
-        sendSystemMessage(roomCode, "Tebrikler! Tüm oyuncular doğru cevabı buldu.");
+        sendSystemMessage(
+          roomCode,
+          "Tebrikler! Tüm oyuncular doğru cevabı buldu."
+        );
       } else {
         io.to(roomCode).emit("finalResult", { success: false });
-        sendSystemMessage(roomCode, "Cevaplar yanlış. Tekrar deneyebilirsiniz.");
+        sendSystemMessage(
+          roomCode,
+          "Cevaplar yanlış. Tekrar deneyebilirsiniz."
+        );
         arr.forEach((p) => (p.answer = null));
       }
     }
@@ -715,63 +845,66 @@ io.to(roomCode).emit("sharedBoardUpdated", { content: room.sharedBoard });
 
   // Ses kanalına katıl
   socket.on("joinVoice", ({ listenOnly } = {}) => {
-  const roomCode = socket.data?.roomCode;
-  if (!roomCode || !rooms[roomCode]) return;
+    const roomCode = socket.data?.roomCode;
+    if (!roomCode || !rooms[roomCode]) return;
 
-  const room = rooms[roomCode];
-  const player = room.players[socket.id];
-  if (!player) return;
+    const room = rooms[roomCode];
+    const player = room.players[socket.id];
+    if (!player) return;
 
-  const voiceRoom = roomCode + "_voice";
-  socket.join(voiceRoom);
+    const voiceRoom = roomCode + "_voice";
+    socket.join(voiceRoom);
 
-  // voice durumunu güncelle
-  player.inVoice = true;
-  player.listenOnly = !!listenOnly;
+    // voice durumunu güncelle
+    player.inVoice = true;
+    player.listenOnly = !!listenOnly;
 
-  const roomSet = io.sockets.adapter.rooms.get(voiceRoom) || new Set();
+    const roomSet = io.sockets.adapter.rooms.get(voiceRoom) || new Set();
 
-  roomSet.forEach((peerId) => {
-    if (peerId === socket.id) return;
-    socket.emit("voiceNewPeer", { peerId, polite: true });
-    io.to(peerId).emit("voiceNewPeer", { peerId: socket.id, polite: false });
-  });
+    roomSet.forEach((peerId) => {
+      if (peerId === socket.id) return;
+      socket.emit("voiceNewPeer", { peerId, polite: true });
+      io.to(peerId).emit("voiceNewPeer", {
+        peerId: socket.id,
+        polite: false
+      });
+    });
 
-  // Oyuncu listesini güncelle (🎧 ikonları için)
-  io.to(roomCode).emit("playersUpdate", {
-    players: getPublicPlayers(roomCode)
-  });
-
-  // Chat'e sistem mesajı
-  const nick = player.name || "Bir oyuncu";
-  const modeText = listenOnly ? " (sadece dinleyici olarak)" : "";
-  sendSystemMessage(roomCode, `${nick} sesli sohbete katıldı${modeText}.`);
-});
-
-  // Ses kanalından ayrıl
-  socket.on("leaveVoice", () => {
-  const roomCode = socket.data?.roomCode;
-  if (!roomCode || !rooms[roomCode]) return;
-
-  const room = rooms[roomCode];
-  const player = room.players[socket.id];
-  const voiceRoom = roomCode + "_voice";
-
-  socket.leave(voiceRoom);
-  io.to(voiceRoom).emit("voicePeerLeft", { peerId: socket.id });
-
-  if (player) {
-    player.inVoice = false;
-    player.listenOnly = false;
-
+    // Oyuncu listesini güncelle (🎧 ikonları için)
     io.to(roomCode).emit("playersUpdate", {
       players: getPublicPlayers(roomCode)
     });
 
+    // Chat'e sistem mesajı
     const nick = player.name || "Bir oyuncu";
-    sendSystemMessage(roomCode, `${nick} sesli sohbetten ayrıldı.`);
-  }
-});
+    const modeText = listenOnly ? " (sadece dinleyici olarak)" : "";
+    sendSystemMessage(roomCode, `${nick} sesli sohbete katıldı${modeText}.`);
+  });
+
+  // Ses kanalından ayrıl
+  socket.on("leaveVoice", () => {
+    const roomCode = socket.data?.roomCode;
+    if (!roomCode || !rooms[roomCode]) return;
+
+    const room = rooms[roomCode];
+    const player = room.players[socket.id];
+    const voiceRoom = roomCode + "_voice";
+
+    socket.leave(voiceRoom);
+    io.to(voiceRoom).emit("voicePeerLeft", { peerId: socket.id });
+
+    if (player) {
+      player.inVoice = false;
+      player.listenOnly = false;
+
+      io.to(roomCode).emit("playersUpdate", {
+        players: getPublicPlayers(roomCode)
+      });
+
+      const nick = player.name || "Bir oyuncu";
+      sendSystemMessage(roomCode, `${nick} sesli sohbetten ayrıldı.`);
+    }
+  });
 
   // WebRTC offer/answer/candidate relay
   socket.on("voiceOffer", ({ to, description }) => {
