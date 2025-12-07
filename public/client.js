@@ -964,22 +964,6 @@ else if (myRole === "kodkırıcı") {
 }
 
 
-      // Delili ortak tahtaya gönder
-      const sendButtons = gameTabContent.querySelectorAll("[data-send-evidence]");
-      sendButtons.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const idx = parseInt(btn.getAttribute("data-send-evidence"), 10);
-          const ev = codebreakerEvidence[idx];
-          if (!ev) return;
-          if (!ev.sentToBoard) {
-            pushEvidenceToBoard(ev.text);        // tahtaya gönder
-            codebreakerEvidence[idx].sentToBoard = true;
-            renderCurrentTab();
-          }
-        });
-      });
-    }
-
     // 2.c) Diğer roller için placeholder
     else {
       const specialLabel = cfg ? cfg.specialTabLabel : "Özel Görev";
