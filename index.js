@@ -22,7 +22,7 @@ const cases = {
     id: "restaurant_murder",
     title: "Restoran Cinayeti",
     answer: "garson",
-    roles: ["dedektif", "polis"],
+    roles: ["kodkırıcı", "polis"],
 
     // 🔹 Arka plandaki cinayet dosyası (AI prompt için kullanılacak)
     caseFile: `
@@ -644,7 +644,7 @@ io.on("connection", (socket) => {
     if (!room.players[socket.id]) return;
 
     // Şimdilik dört rolü destekliyoruz
-    const allowedRoles = ["dedektif", "polis", "ajan", "güvenlik"];
+    const allowedRoles = ["kodkırıcı", "polis", "ajan", "güvenlik"];
     if (!allowedRoles.includes(role)) {
       return;
     }
