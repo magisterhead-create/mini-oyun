@@ -158,16 +158,19 @@ let gameTimerSeconds = 30 * 60;
 let gameTimerInterval = null;
 let sharedBoardText = "";
 let notesText = "";
+// Kod Kırıcı — bulduğu deliller
+// { text: "Delil cümlesi", sentToBoard: false }
+let codebreakerEvidence = [];
 
 // =============================
 // ROL KONFİG (özel sekme isimleri)
 // =============================
 
 const ROLE_CONFIG = {
-  dedektif: {
-    displayName: "Baş Dedektif",
-    specialTabLabel: "Analiz",
-    description: "İpuçlarını birleştirip büyük resmi gören zihin."
+  kodkırıcı: {
+    displayName: "Kod Kırıcı",
+    specialTabLabel: "Cihaz Analizi",
+    description: "Dijital cihazlardan gizli verileri bulan ve zaman çizelgesindeki boşlukları dolduran teknik zeka."
   },
   polis: {
     displayName: "Polis",
@@ -185,6 +188,7 @@ const ROLE_CONFIG = {
     description: "Kamera kayıtlarını ve güvenlik açıklarını inceleyen oyuncu."
   }
 };
+
 
 // =============================
 // KALICI İSİM (localStorage + cookie)
@@ -274,7 +278,7 @@ function startGameTimer() {
 
 function updateMyRoleInfo() {
   let text;
-  if (myRole === "dedektif") text = "Rolün: Baş Dedektif";
+  if (myRole === "kodkırıcı") text = "Rolün: Kod Kırıcı";
   else if (myRole === "polis") text = "Rolün: Polis";
   else if (myRole === "ajan") text = "Rolün: Ajan";
   else if (myRole === "güvenlik") text = "Rolün: Güvenlik";
@@ -306,6 +310,37 @@ function updatePingLabel(ms) {
   if (!pingLabel) return;
   if (ms == null) pingLabel.textContent = "-";
   else pingLabel.textContent = ms + " ms";
+}
+function addEvidenceToNotes(evidenceText) {
+  const t = (evidenceText || "").trim();
+  if (!t) return;
+
+  if (!notesText) {
+    notesText = "- " + t;
+  } else {
+    notesText += "\n- " + t;
+  }
+
+  // Notlar sekmesindeysek anında güncelle
+  if (currentGameTab === "notes") {
+    renderCurrentTab();
+  }
+}
+
+function pushEvidenceToBoard(evidenceText) {
+  const t = (evidenceText || "").trim();
+  if (!t) return;
+
+  const line = `[Kod Kırıcı] ${t}`;
+
+  if (!sharedBoardText) {
+    sharedBoardText = line;
+  } else {
+    sharedBoardText += "\n" + line;
+  }
+
+  // Sunucuya gönder (ortak tahta güncelle)
+  socket.emit("updateSharedBoard", { content: sharedBoardText });
 }
 
 function startPingLoop() {
@@ -532,6 +567,7 @@ function renderCurrentTab() {
 
   gameTabContent.innerHTML = "";
 
+  // 1) ROL ANA BİLGİ (roleMain)
   if (currentGameTab === "roleMain") {
     const roleLabel = cfg ? cfg.displayName : (myRole || "Rol");
     const desc = cfg
@@ -543,8 +579,12 @@ function renderCurrentTab() {
         ${desc}
       </p>
     `;
-  } else if (currentGameTab === "roleSpecial") {
-    // 🔹 POLİS İSE SORGU SEKME İÇERİĞİ
+  }
+
+  // 2) ROL ÖZEL GÖREV SEKMESİ (roleSpecial)
+  else if (currentGameTab === "roleSpecial") {
+
+    // 2.a) POLİS — Sorgu Odası
     if (myRole === "polis") {
       // Şüpheli listesi HTML
       const suspectsHtml = (currentCaseSuspects || [])
@@ -552,7 +592,12 @@ function renderCurrentTab() {
           const isActive = s.id === currentSuspectId;
           return `
             <div class="case-card ${isActive ? "selected" : ""}" data-suspect-id="${s.id}">
-              <div class="case-title">${s.name} <span style="font-size:11px; color:var(--text-muted);">· ${s.roleLabel || "Şüpheli"}</span></div>
+              <div class="case-title">
+                ${s.name}
+                <span style="font-size:11px; color:var(--text-muted);">
+                  · ${s.roleLabel || "Şüpheli"}
+                </span>
+              </div>
               <div class="case-meta">Üzerine tıklayıp sorgulamaya başla.</div>
             </div>
           `;
@@ -564,17 +609,20 @@ function renderCurrentTab() {
         `;
 
       // Seçili şüphelinin chat geçmişi
-      const history = (currentSuspectId && interrogationHistory[currentSuspectId]) || [];
-      const chatHtml = history
-        .map((m) => {
-          const cls =
-            m.from === "player"
-              ? 'style="text-align:right; margin-bottom:4px; font-size:13px;"'
-              : 'style="text-align:left; margin-bottom:4px; font-size:13px;"';
-          const label = m.from === "player" ? "Sen" : "Şüpheli";
-          return `<div ${cls}><strong>${label}:</strong> ${m.text}</div>`;
-        })
-        .join("") || `
+      const history =
+        (currentSuspectId && interrogationHistory[currentSuspectId]) || [];
+      const chatHtml =
+        history
+          .map((m) => {
+            const cls =
+              m.from === "player"
+                ? 'style="text-align:right; margin-bottom:4px; font-size:13px;"'
+                : 'style="text-align:left; margin-bottom:4px; font-size:13px;"';
+            const label = m.from === "player" ? "Sen" : "Şüpheli";
+            return `<div ${cls}><strong>${label}:</strong> ${m.text}</div>`;
+          })
+          .join("") ||
+        `
           <div class="setup-note">
             Henüz soru sormadın. Aşağıya bir soru yazıp gönder, şüpheli cevap verecek.
           </div>
@@ -610,7 +658,7 @@ function renderCurrentTab() {
         </div>
       `;
 
-      // Event binding
+      // Event binding (şüpheli seçme)
       const suspectCards = gameTabContent.querySelectorAll("[data-suspect-id]");
       suspectCards.forEach((el) => {
         el.addEventListener("click", () => {
@@ -620,6 +668,7 @@ function renderCurrentTab() {
         });
       });
 
+      // Soru gönderme
       const inputEl = document.getElementById("interrogationInput");
       const sendBtn = document.getElementById("interrogationSendBtn");
 
@@ -641,8 +690,143 @@ function renderCurrentTab() {
           }
         });
       }
-    } else {
-      // Diğer roller için eski placeholder
+    }
+
+    // 2.b) KOD KIRICI — Cihaz Analizi
+    else if (myRole === "kodkırıcı") {
+      const evListHtml =
+        codebreakerEvidence.length === 0
+          ? `
+          <div class="setup-note">
+            Henüz delil eklemedin. Soldaki cihazdaki öğelere tıklayarak
+            şüpheli verileri <strong>notlarına</strong> kaydedebilirsin.
+          </div>
+        `
+          : `
+          <ul style="padding-left:16px; font-size:13px;">
+            ${codebreakerEvidence
+              .map((e, idx) => {
+                const sent = e.sentToBoard
+                  ? '<span class="tag ready" style="margin-left:4px;">Tahtada</span>'
+                  : "";
+                return `
+                  <li style="margin-bottom:4px;">
+                    ${e.text}
+                    <button
+                      class="btn-primary btn-xs"
+                      data-send-evidence="${idx}"
+                      style="margin-left:6px;"
+                    >
+                      Tahtaya Gönder
+                    </button>
+                    ${sent}
+                  </li>
+                `;
+              })
+              .join("")}
+          </ul>
+        `;
+
+      gameTabContent.innerHTML = `
+        <h3>Kod Kırıcı — Cihaz Analizi</h3>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">
+          Şüphelinin telefonunu/laptopunu kurcalıyorsun. Şimdilik prototip:
+          cihaz içindeki örnek verileri tıklayarak delil topla.
+        </p>
+
+        <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:10px;">
+          <!-- Sol: Cihaz arayüzü -->
+          <div class="players-box" style="min-height:220px;">
+            <div class="label">Şüpheli Cihazı (prototip)</div>
+            <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">
+              Örnek alanlara tıkla; delil olarak kaydolur.
+            </div>
+
+            <div class="code-device">
+              <div class="code-device-row-title">WhatsApp</div>
+              <div
+                class="code-device-item"
+                data-evidence-text="WhatsApp: 22:31 — 'Kimseye söyleme... bu gece bitecek.'"
+              >
+                📱 Sohbet — “Kimseye söyleme… bu gece bitecek.”
+              </div>
+
+              <div class="code-device-row-title">Arama Kayıtları</div>
+              <div
+                class="code-device-item"
+                data-evidence-text="Arama kaydı: 23:58 gizli numaradan 3 saniyelik arama."
+              >
+                📞 23:58 — gizli numara (3 sn)
+              </div>
+
+              <div class="code-device-row-title">Galeri</div>
+              <div
+                class="code-device-item locked"
+                data-evidence-text="Galeri: 23:39'da çekilmiş ancak silinmiş bir fotoğraf (arka sokak)."
+              >
+                🔒 Silinmiş Fotoğraflar — 23:39 (kilitli / minigame)
+              </div>
+
+              <div class="code-device-row-title">Konum Geçmişi</div>
+              <div
+                class="code-device-item"
+                data-evidence-text="Konum geçmişi: 22:41'de olay yerine çok yakın 'arka sokak' kaydı."
+              >
+                📍 22:41 — Olay yerine yakın konum kaydı
+              </div>
+            </div>
+          </div>
+
+          <!-- Sağ: Bulduğun deliller -->
+          <div class="players-box" style="min-height:220px;">
+            <div class="label">Bulduğun Deliller</div>
+            ${evListHtml}
+            <div class="setup-note" style="margin-top:6px;">
+              Deliller notlarına da eklenir. “Tahtaya Gönder” ile
+              <strong>Ortak Tahta</strong>ya düşer ve herkes görür.
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Cihaz içi öğelere tıklayınca delil ekle
+      const evidenceNodes = gameTabContent.querySelectorAll(
+        "[data-evidence-text]"
+      );
+      evidenceNodes.forEach((el) => {
+        el.addEventListener("click", () => {
+          const text = el.getAttribute("data-evidence-text") || "";
+          const trimmed = text.trim();
+          if (!trimmed) return;
+
+          // Aynı delili iki kez ekleme
+          const already = codebreakerEvidence.some((e) => e.text === trimmed);
+          if (!already) {
+            codebreakerEvidence.push({ text: trimmed, sentToBoard: false });
+            addEvidenceToNotes(trimmed);     // notlara yaz
+            renderCurrentTab();              // listeyi güncelle
+          }
+        });
+      });
+
+      // Delili ortak tahtaya gönder
+      const sendButtons = gameTabContent.querySelectorAll("[data-send-evidence]");
+      sendButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.getAttribute("data-send-evidence"), 10);
+          const ev = codebreakerEvidence[idx];
+          if (!ev) return;
+          if (!ev.sentToBoard) {
+            pushEvidenceToBoard(ev.text);        // tahtaya gönder
+            codebreakerEvidence[idx].sentToBoard = true;
+            renderCurrentTab();
+          }
+        });
+      });
+    }
+
+    // 2.c) Diğer roller için placeholder
+    else {
       const specialLabel = cfg ? cfg.specialTabLabel : "Özel Görev";
       gameTabContent.innerHTML = `
         <h3>${specialLabel}</h3>
@@ -651,7 +835,10 @@ function renderCurrentTab() {
         </p>
       `;
     }
-  } else if (currentGameTab === "sharedBoard") {
+  }
+
+  // 3) ORTAK TAHTA
+  else if (currentGameTab === "sharedBoard") {
     gameTabContent.innerHTML = `
       <div class="label">Ortak Tahta</div>
       <textarea
@@ -680,7 +867,10 @@ function renderCurrentTab() {
         socket.emit("updateSharedBoard", { content });
       });
     }
-  } else if (currentGameTab === "notes") {
+  }
+
+  // 4) NOTLAR
+  else if (currentGameTab === "notes") {
     gameTabContent.innerHTML = `
       <div class="label">Kişisel Notların</div>
       <textarea
@@ -699,7 +889,10 @@ function renderCurrentTab() {
         notesText = ta.value;
       });
     }
-  } else if (currentGameTab === "settings") {
+  }
+
+  // 5) AYARLAR
+  else if (currentGameTab === "settings") {
     gameTabContent.innerHTML = `
       <h3>Ayarlar</h3>
       <p style="font-size:13px; color: var(--text-muted);">
@@ -708,6 +901,7 @@ function renderCurrentTab() {
     `;
   }
 }
+
 function sendInterrogationQuestion() {
   if (myRole !== "polis") return;
   if (!currentSuspectId) return;
@@ -1266,11 +1460,11 @@ socket.on("playersUpdate", (data) => {
   let listHtml = "";
   players.forEach((p) => {
     let roleLabel;
-    if (p.role === "dedektif") roleLabel = "Baş Dedektif";
-    else if (p.role === "polis") roleLabel = "Polis";
-    else if (p.role === "ajan") roleLabel = "Ajan";
-    else if (p.role === "güvenlik") roleLabel = "Güvenlik";
-    else roleLabel = "Rol seçilmedi";
+if (p.role === "kodkırıcı") roleLabel = "Kod Kırıcı";
+else if (p.role === "polis") roleLabel = "Polis";
+else if (p.role === "ajan") roleLabel = "Ajan";
+else if (p.role === "güvenlik") roleLabel = "Güvenlik";
+else roleLabel = "Rol seçilmedi";
 
     let readyHtml = "";
     if (currentPhase === 0) {
