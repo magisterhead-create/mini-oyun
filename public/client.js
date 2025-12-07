@@ -161,6 +161,8 @@ let notesText = "";
 // Kod Kırıcı — bulduğu deliller
 // { text: "Delil cümlesi", sentToBoard: false }
 let codebreakerEvidence = [];
+let codebreakerView = "menu";   // "menu" | "whatsapp" | "calls" | "gallery" | "notes" | "files" | "location"
+
 
 // =============================
 // ROL KONFİG (özel sekme isimleri)
@@ -188,6 +190,90 @@ const ROLE_CONFIG = {
     description: "Kamera kayıtlarını ve güvenlik açıklarını inceleyen oyuncu."
   }
 };
+const CODEBREAKER_SECTIONS = {
+  whatsapp: {
+    label: "WhatsApp",
+    items: [
+      {
+        label: "📱 Sohbet — “Kimseye söyleme… bu gece bitecek.”",
+        evidence: "WhatsApp: 22:31 — 'Kimseye söyleme... bu gece bitecek.'"
+      },
+      {
+        label: "📱 Grup: 'Restoran Ekip' — son mesaj 22:10'da sinirli ton",
+        evidence: "WhatsApp: 'Bu herif bu gece haddini bilecek.' (Restoran Ekip grubu)"
+      }
+    ]
+  },
+  calls: {
+    label: "Arama Kayıtları",
+    items: [
+      {
+        label: "📞 23:58 — gizli numara (3 sn)",
+        evidence: "Arama kaydı: 23:58 gizli numaradan 3 saniyelik arama."
+      },
+      {
+        label: "📞 22:27 — 'Şef Hakan' 45 sn",
+        evidence: "Arama kaydı: 22:27'de Şef Hakan ile 45 saniyelik konuşma."
+      }
+    ]
+  },
+  gallery: {
+    label: "Galeri",
+    items: [
+      {
+        label: "🖼 22:15 — restoran içi selfie",
+        evidence: "Galeri: 22:15'te restoran içinde çekilmiş selfie."
+      },
+      {
+        label: "🔒 Silinmiş Fotoğraflar — 23:39 (kilitli / minigame)",
+        evidence: "Galeri: 23:39'da çekilmiş ancak silinmiş bir fotoğraf (arka sokak).",
+        locked: true
+      }
+    ]
+  },
+  notes: {
+    label: "Notlar",
+    items: [
+      {
+        label: "📝 'Beni kimse anlamıyor.' notu",
+        evidence: "Notlar: 'Beni kimse anlamıyor.'"
+      },
+      {
+        label: "📝 'Bu gece bitecek.' notu",
+        evidence: "Notlar: 'Bu gece bitecek.'"
+      }
+    ]
+  },
+  files: {
+    label: "Dosyalar",
+    items: [
+      {
+        label: "📁 gizli.zip",
+        evidence: "Dosya sistemi: 'gizli.zip' isimli şifreli arşiv dosyası.",
+        locked: true
+      },
+      {
+        label: "📄 sifre.docx",
+        evidence: "Dosya sistemi: 'sifre.docx' isimli şifre notları dosyası."
+      }
+    ]
+  },
+  location: {
+    label: "Harita / Konum Geçmişi",
+    items: [
+      {
+        label: "📍 22:41 — Olay yerine yakın 'arka sokak' kaydı",
+        evidence: "Konum geçmişi: 22:41'de olay yerine çok yakın 'arka sokak' kaydı."
+      },
+      {
+        label: "📍 23:10 — kısa süreli 'ev' konumu",
+        evidence: "Konum geçmişi: 23:10'da kısa süreli 'ev' konumu – alibi çelişkisi yaratıyor."
+      }
+    ]
+  }
+};
+
+
 
 
 // =============================
@@ -327,6 +413,12 @@ function addEvidenceToNotes(evidenceText) {
   }
 }
 
+function pushEvidenceToBoard(text) {
+  const current = sharedBoardText || "";
+  const line = `• ${text}`;
+  sharedBoardText = current ? current + "\n" + line : line;
+  socket.emit("updateSharedBoard", { content: sharedBoardText });
+}
 function pushEvidenceToBoard(evidenceText) {
   const t = (evidenceText || "").trim();
   if (!t) return;
@@ -693,121 +785,184 @@ function renderCurrentTab() {
     }
 
     // 2.b) KOD KIRICI — Cihaz Analizi
-    else if (myRole === "kodkırıcı") {
-      const evListHtml =
-        codebreakerEvidence.length === 0
-          ? `
-          <div class="setup-note">
-            Henüz delil eklemedin. Soldaki cihazdaki öğelere tıklayarak
-            şüpheli verileri <strong>notlarına</strong> kaydedebilirsin.
+    // 2.b) KOD KIRICI — Cihaz Analizi
+else if (myRole === "kodkırıcı") {
+  // Telefonun sol tarafı: menü veya uygulama içi ekran
+  let phoneHtml = "";
+
+  if (codebreakerView === "menu") {
+    // Ana menü
+    phoneHtml = `
+      <div class="label">Şüpheli Cihazı (prototip)</div>
+      <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">
+        Bir uygulamaya tıkla; içindeki öğelerden delil toplayabilirsin.
+      </div>
+
+      <div class="code-device phone-device">
+        <button class="phone-app-btn" data-phone-open="whatsapp">WhatsApp</button>
+        <button class="phone-app-btn" data-phone-open="sms">Mesajlar (SMS)</button>
+        <button class="phone-app-btn" data-phone-open="calls">Arama Kayıtları</button>
+        <button class="phone-app-btn" data-phone-open="gallery">Galeri</button>
+        <button class="phone-app-btn" data-phone-open="notes">Notlar</button>
+        <button class="phone-app-btn" data-phone-open="files">Dosyalar</button>
+        <button class="phone-app-btn" data-phone-open="location">Harita / Konum geçmişi</button>
+      </div>
+    `;
+  } else {
+    // Uygulama içi ekran
+    const key = codebreakerView;
+    const section =
+      CODEBREAKER_SECTIONS[key === "sms" ? "whatsapp" : key] || null;
+
+    if (!section) {
+      // güvenlik: bilinmeyen state'te menüye dön
+      codebreakerView = "menu";
+      return renderCurrentTab();
+    }
+
+    const itemsHtml = section.items
+      .map((item) => {
+        const locked = item.locked
+          ? '<span style="font-size:11px; color:#f97373; margin-left:4px;">🔒 (mini oyun yakında)</span>'
+          : "";
+        const attr = item.locked ? "" : `data-evidence-text="${item.evidence}"`;
+        const lockedClass = item.locked ? "locked" : "";
+        return `
+          <div class="phone-item ${lockedClass}" ${attr}>
+            ${item.label}
+            ${locked}
           </div>
-        `
-          : `
-          <ul style="padding-left:16px; font-size:13px;">
-            ${codebreakerEvidence
-              .map((e, idx) => {
-                const sent = e.sentToBoard
-                  ? '<span class="tag ready" style="margin-left:4px;">Tahtada</span>'
-                  : "";
-                return `
-                  <li style="margin-bottom:4px;">
-                    ${e.text}
-                    <button
-                      class="btn-primary btn-xs"
-                      data-send-evidence="${idx}"
-                      style="margin-left:6px;"
-                    >
-                      Tahtaya Gönder
-                    </button>
-                    ${sent}
-                  </li>
-                `;
-              })
-              .join("")}
-          </ul>
         `;
+      })
+      .join("");
 
-      gameTabContent.innerHTML = `
-        <h3>Kod Kırıcı — Cihaz Analizi</h3>
-        <p style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">
-          Şüphelinin telefonunu/laptopunu kurcalıyorsun. Şimdilik prototip:
-          cihaz içindeki örnek verileri tıklayarak delil topla.
-        </p>
+    phoneHtml = `
+      <div class="phone-header">
+        <button id="phoneBackBtn" class="btn-ghost btn-xs">← Menü</button>
+        <span class="phone-title">${section.label}</span>
+      </div>
+      <div class="phone-body">
+        ${itemsHtml}
+      </div>
+    `;
+  }
 
-        <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:10px;">
-          <!-- Sol: Cihaz arayüzü -->
-          <div class="players-box" style="min-height:220px;">
-            <div class="label">Şüpheli Cihazı (prototip)</div>
-            <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">
-              Örnek alanlara tıkla; delil olarak kaydolur.
-            </div>
-
-            <div class="code-device">
-              <div class="code-device-row-title">WhatsApp</div>
-              <div
-                class="code-device-item"
-                data-evidence-text="WhatsApp: 22:31 — 'Kimseye söyleme... bu gece bitecek.'"
-              >
-                📱 Sohbet — “Kimseye söyleme… bu gece bitecek.”
-              </div>
-
-              <div class="code-device-row-title">Arama Kayıtları</div>
-              <div
-                class="code-device-item"
-                data-evidence-text="Arama kaydı: 23:58 gizli numaradan 3 saniyelik arama."
-              >
-                📞 23:58 — gizli numara (3 sn)
-              </div>
-
-              <div class="code-device-row-title">Galeri</div>
-              <div
-                class="code-device-item locked"
-                data-evidence-text="Galeri: 23:39'da çekilmiş ancak silinmiş bir fotoğraf (arka sokak)."
-              >
-                🔒 Silinmiş Fotoğraflar — 23:39 (kilitli / minigame)
-              </div>
-
-              <div class="code-device-row-title">Konum Geçmişi</div>
-              <div
-                class="code-device-item"
-                data-evidence-text="Konum geçmişi: 22:41'de olay yerine çok yakın 'arka sokak' kaydı."
-              >
-                📍 22:41 — Olay yerine yakın konum kaydı
-              </div>
-            </div>
-          </div>
-
-          <!-- Sağ: Bulduğun deliller -->
-          <div class="players-box" style="min-height:220px;">
-            <div class="label">Bulduğun Deliller</div>
-            ${evListHtml}
-            <div class="setup-note" style="margin-top:6px;">
-              Deliller notlarına da eklenir. “Tahtaya Gönder” ile
-              <strong>Ortak Tahta</strong>ya düşer ve herkes görür.
-            </div>
-          </div>
+  // Sağ taraftaki delil listesi
+  const evListHtml =
+    codebreakerEvidence.length === 0
+      ? `
+        <div class="setup-note">
+          Henüz delil eklemedin. Soldaki cihazdaki öğelere tıklayarak
+          şüpheli verileri <strong>notlarına</strong> kaydedebilirsin.
         </div>
+      `
+      : `
+        <ul style="padding-left:16px; font-size:13px;">
+          ${codebreakerEvidence
+            .map((e, idx) => {
+              const sent = e.sentToBoard
+                ? '<span class="tag ready" style="margin-left:4px;">Tahtada</span>'
+                : "";
+              return `
+                <li style="margin-bottom:4px;">
+                  ${e.text}
+                  <button
+                    class="btn-primary btn-xs"
+                    data-send-evidence="${idx}"
+                    style="margin-left:6px;"
+                  >
+                    Tahtaya Gönder
+                  </button>
+                  ${sent}
+                </li>
+              `;
+            })
+            .join("")}
+        </ul>
       `;
 
-      // Cihaz içi öğelere tıklayınca delil ekle
-      const evidenceNodes = gameTabContent.querySelectorAll(
-        "[data-evidence-text]"
-      );
-      evidenceNodes.forEach((el) => {
-        el.addEventListener("click", () => {
-          const text = el.getAttribute("data-evidence-text") || "";
-          const trimmed = text.trim();
-          if (!trimmed) return;
+  gameTabContent.innerHTML = `
+    <h3>Kod Kırıcı — Cihaz Analizi</h3>
+    <p style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">
+      Şüphelinin telefonunu/laptopunu kurcalıyorsun. Şimdilik prototip:
+      cihaz içindeki örnek verileri tıklayarak delil topla.
+    </p>
 
-          // Aynı delili iki kez ekleme
-          const already = codebreakerEvidence.some((e) => e.text === trimmed);
-          if (!already) {
-            codebreakerEvidence.push({ text: trimmed, sentToBoard: false });
-            addEvidenceToNotes(trimmed);     // notlara yaz
-            renderCurrentTab();              // listeyi güncelle
-          }
-        });
-      });
+    <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:10px;">
+      <!-- Sol: Telefon -->
+      <div class="players-box" style="min-height:260px;">
+        ${phoneHtml}
+      </div>
+
+      <!-- Sağ: Bulduğun deliller -->
+      <div class="players-box" style="min-height:260px;">
+        <div class="label">Bulduğun Deliller</div>
+        ${evListHtml}
+        <div class="setup-note" style="margin-top:6px;">
+          Deliller notlarına da eklenir. “Tahtaya Gönder” ile
+          <strong>Ortak Tahta</strong>ya düşer ve herkes görür.
+        </div>
+      </div>
+    </div>
+  `;
+
+  // ---- Eventler ----
+
+  // Menüdeki app butonları
+  const appButtons = gameTabContent.querySelectorAll("[data-phone-open]");
+  appButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = btn.getAttribute("data-phone-open");
+      if (target === "sms") {
+        codebreakerView = "whatsapp"; // SMS’i de aynı veriye yönlendirdik şimdilik
+      } else {
+        codebreakerView = target;
+      }
+      renderCurrentTab();
+    });
+  });
+
+  // Geri butonu
+  const backBtn = document.getElementById("phoneBackBtn");
+  if (backBtn) {
+    backBtn.addEventListener("click", () => {
+      codebreakerView = "menu";
+      renderCurrentTab();
+    });
+  }
+
+  // Uygulama içi delil satırları
+  const evidenceNodes = gameTabContent.querySelectorAll("[data-evidence-text]");
+  evidenceNodes.forEach((el) => {
+    el.addEventListener("click", () => {
+      const text = (el.getAttribute("data-evidence-text") || "").trim();
+      if (!text) return;
+
+      const already = codebreakerEvidence.some((e) => e.text === text);
+      if (!already) {
+        codebreakerEvidence.push({ text, sentToBoard: false });
+        addEvidenceToNotes(text);
+        renderCurrentTab();
+      }
+    });
+  });
+
+  // Delili ortak tahtaya gönder
+  const sendButtons = gameTabContent.querySelectorAll("[data-send-evidence]");
+  sendButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.getAttribute("data-send-evidence"), 10);
+      const ev = codebreakerEvidence[idx];
+      if (!ev) return;
+      if (!ev.sentToBoard) {
+        pushEvidenceToBoard(ev.text);
+        codebreakerEvidence[idx].sentToBoard = true;
+        renderCurrentTab();
+      }
+    });
+  });
+}
+
 
       // Delili ortak tahtaya gönder
       const sendButtons = gameTabContent.querySelectorAll("[data-send-evidence]");
