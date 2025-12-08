@@ -644,7 +644,7 @@ io.on("connection", (socket) => {
     if (!room.players[socket.id]) return;
 
     // Şimdilik dört rolü destekliyoruz
-    const allowedRoles = ["kodkırıcı", "polis", "ajan", "güvenlik"];
+    const allowedRoles = ["kodkırıcı", "polis", "ajan", "güvenlik", "sahaanalizcisi"];
     if (!allowedRoles.includes(role)) {
       return;
     }
@@ -758,6 +758,27 @@ socket.on("policeInterrogate", async ({ suspectId, question, history }) => {
     suspectId,
     answer: answerText
   });
+});
+
+  socket.on("npcTalk", async ({ zoneId, question, prompt }) => {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        { role: "system", content: prompt },
+        { role: "user", content: question }
+      ]
+    });
+
+    socket.emit("npcReply", {
+      reply: response.choices[0].message.content
+    });
+
+  } catch (err) {
+    socket.emit("npcReply", {
+      reply: "NPC tedirgin görünüyor ve konuşmak istemiyor."
+    });
+  }
 });
 
 
