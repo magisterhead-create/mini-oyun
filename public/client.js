@@ -196,16 +196,6 @@ const ROLE_CONFIG = {
   }
 
 };
-const FIELD_ZONES = {
-  trash_area: {
-    id: "trash_area",
-    name: "Çöp Bölgesi",
-    img: "/assets/Resim2.png", // tıklayınca açılan görsel
-    desc: "Kapşonlu biri çöplerin orada oyalanıyor. Seni fark etmiş gibi.",
-    npcPrompt:
-      "Sen saha analizcisisin. Halktan bilgi topluyorsun. Karşındaki kapşonlu biri seni fark etti, tedirgin davranıyor. Sahaya uygun kısa, doğal cevaplar ver."
-  }
-};
 
 const CODEBREAKER_SECTIONS = {
   whatsapp: {
