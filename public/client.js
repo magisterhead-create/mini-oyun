@@ -32,6 +32,13 @@ const tabSharedBoardBtn = document.getElementById("tabSharedBoardBtn");
 const tabNotesBtn = document.getElementById("tabNotesBtn");
 const tabSettingsBtn = document.getElementById("tabSettingsBtn");
 
+// === SAHA ANALİZCİSİ MODAL ===
+const tabFieldBtn = document.getElementById("tabFieldBtn");
+const fieldTalkModal     = document.getElementById("fieldTalkModal");
+const fieldTalkCloseBtn  = document.getElementById("fieldTalkCloseBtn");
+const fieldTalkForm      = document.getElementById("fieldTalkForm");
+const fieldTalkInput     = document.getElementById("fieldTalkInput");
+const fieldTalkMessages  = document.getElementById("fieldTalkMessages");
 
 
 // Menü
@@ -166,7 +173,7 @@ let codebreakerView = "menu";   // "menu" | "whatsapp" | "calls" | "gallery" | "
 // Saha Analizcisi — bölge sohbetleri
 let fieldCurrentZoneId = null;      // şu an açık olan bölge
 let fieldConversations = {};        // { zoneId: [ { from:"player"|"npc", text } ] }
-
+let fieldHistory = [];
 // =============================
 // ROL KONFİG (özel sekme isimleri)
 // =============================
@@ -703,8 +710,10 @@ function setActiveTab(tabName) {
    if (id === "tabRoleMainBtn") thisTab = "roleMain";
 else if (id === "tabRoleSpecialBtn") thisTab = "roleSpecial";
 else if (id === "tabSharedBoardBtn") thisTab = "sharedBoard";
+else if (id === "tabFieldBtn") thisTab = "field";
 else if (id === "tabNotesBtn") thisTab = "notes";
 else if (id === "tabSettingsBtn") thisTab = "settings";
+    
 
 
     if (thisTab === tabName) btn.classList.add("active");
@@ -1023,118 +1032,7 @@ else if (myRole === "kodkırıcı") {
     });
   });
 }
-        else if (myRole === "sahaanalizcisi") {
-      gameTabContent.innerHTML = `
-        <h3>Saha Haritası</h3>
-        <p style="font-size:12px; color: var(--text-muted); margin-bottom:8px;">
-          Harita üzerindeki işaretli noktalara tıklayarak ipuçları topla. Şimdilik sadece bir nokta aktif.
-        </p>
-
-        <div class="players-box" style="text-align:center;">
-          <div id="fieldMapWrapper"
-               style="position:relative; display:inline-block; max-width:100%;">
-            <img src="/assets/Resim1.png"
-                 id="fieldMapImg"
-                 style="max-width:100%; border-radius:8px; display:block;" />
-          </div>
-          <div style="margin-top:6px; font-size:12px; color:var(--text-muted);">
-            Sadece görünen noktalara tıklanabilir.
-          </div>
-        </div>
-
-        <div id="fieldDetailBox" style="margin-top:12px;"></div>
-      `;
-
-      const wrapper   = document.getElementById("fieldMapWrapper");
-      const detailBox = document.getElementById("fieldDetailBox");
-
-      if (wrapper && detailBox) {
-        // Her bölge için bir marker oluştur
-        Object.values(FIELD_ZONES).forEach((zone) => {
-          if (!zone.rect) return;
-          const r = zone.rect;
-
-          // Merkez noktayı hesapla (0–1 arası)
-          const cx = (r.xMin + r.xMax) / 2;
-          const cy = (r.yMin + r.yMax) / 2;
-
-          const marker = document.createElement("button");
-          marker.type = "button";
-          marker.className = "field-marker";
-          marker.style.position = "absolute";
-          marker.style.left = (cx * 100) + "%";
-          marker.style.top = (cy * 100) + "%";
-          marker.style.transform = "translate(-50%, -50%)";
-          marker.style.width = "14px";
-          marker.style.height = "14px";
-          marker.style.borderRadius = "999px";
-          marker.style.border = "2px solid rgba(255,255,255,0.9)";
-          marker.style.background = "rgba(59,130,246,0.9)";
-          marker.style.boxShadow = "0 0 6px rgba(59,130,246,0.9)";
-          marker.style.cursor = "pointer";
-          marker.style.padding = "0";
-          marker.style.outline = "none";
-
-          marker.title = zone.name || "Bölge";
-
-          marker.addEventListener("click", (e) => {
-            e.stopPropagation(); // haritanın kendisine tıklama gitmesin
-
-            // Eğer bu bölge henüz detaylı değilse placeholder göster
-            if (!zone.img) {
-              detailBox.innerHTML = `
-                <div class="players-box" style="margin-top:10px;">
-                  <p style="font-size:13px; margin-top:6px;">
-                    <strong>${zone.name}</strong> bölgesi henüz detaylandırılmadı.
-                    Daha sonra buraya sahne ve NPC diyalogları eklenecek.
-                  </p>
-                </div>
-              `;
-              return;
-            }
-
-            // Aktif bölge (şu an sadece trash_area)
-            detailBox.innerHTML = `
-              <div class="players-box" style="margin-top:10px;">
-                <img src="${zone.img}" style="max-width:100%; border-radius:8px;" />
-                <p style="font-size:13px; margin-top:6px;">${zone.desc}</p>
-
-                <div style="display:flex; gap:8px; margin-top:8px;">
-                  <button id="fieldTalkBtn" class="btn-primary btn-small">Konuş</button>
-                  <button id="fieldBackBtn" class="btn-secondary btn-small">Geri</button>
-                </div>
-              </div>
-            `;
-
-            const talkBtn = document.getElementById("fieldTalkBtn");
-            const backBtn = document.getElementById("fieldBackBtn");
-
-            if (backBtn) {
-              backBtn.addEventListener("click", () => {
-                detailBox.innerHTML = "";
-              });
-            }
-
-            if (talkBtn && zone.npcPrompt) {
-              talkBtn.addEventListener("click", () => {
-                socket.emit("fieldTalk", {
-                  zoneId: zone.id,
-                  prompt: zone.npcPrompt
-                });
-
-                detailBox.innerHTML += `
-                  <p style="font-size:12px; color:var(--text-muted); margin-top:6px;">
-                    NPC düşünüyor...
-                  </p>
-                `;
-              });
-            }
-          });
-
-          wrapper.appendChild(marker);
-        });
-      }
-    }
+        
 
 
 
@@ -1149,7 +1047,108 @@ else if (myRole === "kodkırıcı") {
       `;
     }
   }
-    
+      // 3) SAHA ANALİZİ TAB'I (field)
+  else if (currentGameTab === "field") {
+    if (myRole !== "sahaanalizcisi") {
+      gameTabContent.innerHTML = `
+        <p style="font-size:13px; color:var(--text-muted);">
+          Bu sekme yalnızca Saha Analizcisi rolü için aktif.
+        </p>
+      `;
+      return;
+    }
+
+    gameTabContent.innerHTML = `
+      <h3>Saha Haritası</h3>
+      <p style="font-size:12px; color: var(--text-muted); margin-bottom:8px;">
+        Harita üzerindeki işaretli noktalara tıklayarak ipuçları topla. Şimdilik sadece bir nokta aktif.
+      </p>
+
+      <div class="players-box" style="text-align:center;">
+        <div id="fieldMapWrapper"
+             style="position:relative; display:inline-block; max-width:100%;">
+          <img src="/assets/Resim1.png"
+               id="fieldMapImg"
+               style="max-width:100%; border-radius:8px; display:block;" />
+        </div>
+        <div style="margin-top:6px; font-size:12px; color:var(--text-muted);">
+          Sadece görünen noktalara tıklanabilir.
+        </div>
+      </div>
+
+      <div id="fieldDetailBox" style="margin-top:12px;"></div>
+    `;
+
+    const wrapper   = document.getElementById("fieldMapWrapper");
+    const detailBox = document.getElementById("fieldDetailBox");
+
+    if (wrapper && detailBox) {
+      Object.values(FIELD_ZONES).forEach((zone) => {
+        if (!zone.rect) return;
+        const r = zone.rect;
+
+        const cx = (r.xMin + r.xMax) / 2;
+        const cy = (r.yMin + r.yMax) / 2;
+
+        const marker = document.createElement("button");
+        marker.type = "button";
+        marker.className = "field-marker";
+        marker.style.position = "absolute";
+        marker.style.left = (cx * 100) + "%";
+        marker.style.top = (cy * 100) + "%";
+        marker.style.transform = "translate(-50%, -50%)";
+        marker.style.width = "14px";
+        marker.style.height = "14px";
+        marker.style.borderRadius = "999px";
+        marker.style.border = "2px solid rgba(255,255,255,0.9)";
+        marker.style.background = "rgba(59,130,246,0.9)";
+        marker.style.boxShadow = "0 0 6px rgba(59,130,246,0.9)";
+        marker.style.cursor = "pointer";
+        marker.style.padding = "0";
+        marker.style.outline = "none";
+
+        marker.title = zone.name || "Bölge";
+
+        marker.addEventListener("click", (e) => {
+          e.stopPropagation();
+
+          fieldCurrentZoneId = zone.id; // aktif bölgeyi sakla
+
+          // Bölge detayını altta göster
+          detailBox.innerHTML = `
+            <div class="players-box" style="margin-top:10px;">
+              ${zone.img ? `<img src="${zone.img}" style="max-width:100%; border-radius:8px;" />` : ""}
+              <p style="font-size:13px; margin-top:6px;">${zone.desc || ""}</p>
+
+              <div style="display:flex; gap:8px; margin-top:8px;">
+                <button id="fieldTalkBtn" class="btn-primary btn-small">Konuş</button>
+                <button id="fieldBackBtn" class="btn-secondary btn-small">Geri</button>
+              </div>
+            </div>
+          `;
+
+          const talkBtn = document.getElementById("fieldTalkBtn");
+          const backBtn = document.getElementById("fieldBackBtn");
+
+          if (backBtn) {
+            backBtn.addEventListener("click", () => {
+              fieldCurrentZoneId = null;
+              detailBox.innerHTML = "";
+            });
+          }
+
+          if (talkBtn) {
+            talkBtn.addEventListener("click", () => {
+              openFieldTalkModal();
+            });
+          }
+        });
+
+        wrapper.appendChild(marker);
+      });
+    }
+  }
+
 
   // 3) ORTAK TAHTA
   else if (currentGameTab === "sharedBoard") {
@@ -1215,61 +1214,31 @@ else if (myRole === "kodkırıcı") {
     `;
   }
 }
-function renderFieldZoneDetail() {
+
+function openFieldTalkModal() {
   if (!fieldCurrentZoneId) return;
-  const zone = FIELD_ZONES[fieldCurrentZoneId];
-  if (!zone) return;
+  if (!fieldConversations[fieldCurrentZoneId]) {
+    fieldConversations[fieldCurrentZoneId] = [];
+  }
 
-  const detailBox = document.getElementById("fieldDetailBox");
-  if (!detailBox) return;
+  if (!fieldTalkModal || !fieldTalkMessages) return;
 
-  const history = fieldConversations[fieldCurrentZoneId] || [];
+  // Eski mesajları temizle
+  fieldTalkMessages.innerHTML = "";
 
-  const chatHtml =
-    history.length === 0
-      ? `
-        <div class="setup-note">
-          NPC ile sohbet etmek için aşağıya mesaj yaz.
-          Gündelik, mahalle havasında konuş; o da öyle cevap verecek.
-        </div>
-      `
-      : history
-          .map((m) => {
-            const isPlayer = m.from === "player";
-            const align = isPlayer ? "right" : "left";
-            const who = isPlayer ? "Sen" : "NPC";
-            return `
-              <div style="text-align:${align}; margin-bottom:4px; font-size:13px;">
-                <strong>${who}:</strong> ${m.text}
-              </div>
-            `;
-          })
-          .join("");
+  fieldConversations[fieldCurrentZoneId].forEach((m) => {
+    const bubble = document.createElement("div");
+    bubble.className =
+      "interrogation-bubble " + (m.from === "player" ? "player" : "suspect");
+    bubble.textContent = (m.from === "player" ? "Sen: " : "NPC: ") + m.text;
+    fieldTalkMessages.appendChild(bubble);
+  });
 
-  detailBox.innerHTML = `
-    <div class="players-box" style="margin-top:10px;">
-      ${zone.img ? `<img src="${zone.img}" style="max-width:100%; border-radius:8px;" />` : ""}
-      ${zone.desc ? `<p style="font-size:13px; margin-top:6px;">${zone.desc}</p>` : ""}
+  fieldTalkMessages.scrollTop = fieldTalkMessages.scrollHeight;
+  fieldTalkModal.style.display = "flex";
+}
 
-      <div class="players-box" style="margin-top:8px; max-height:160px; overflow-y:auto;">
-        ${chatHtml}
-      </div>
 
-      <div style="display:flex; gap:6px; margin-top:6px;">
-        <input
-          id="fieldInput"
-          placeholder="NPC'ye ne söylemek istiyorsun?"
-          style="margin-top:0; flex:1;"
-        />
-        <button id="fieldSendBtn" class="btn-primary btn-small">Gönder</button>
-        <button id="fieldBackBtn" class="btn-secondary btn-small">Kapat</button>
-      </div>
-      <div class="setup-note" style="margin-top:4px;">
-        NPC sıradan bir mahalle sakini gibi konuşmalı; bazen işe yarar bir ipucu verir,
-        bazen de hiçbir şey bilmeyebilir.
-      </div>
-    </div>
-  `;
 
   const inputEl = document.getElementById("fieldInput");
   const sendBtn = document.getElementById("fieldSendBtn");
@@ -1296,7 +1265,6 @@ function renderFieldZoneDetail() {
     });
 
     inputEl.value = "";
-    renderFieldZoneDetail(); // kendi mesajını hemen gör
   }
 
   if (sendBtn && inputEl) {
@@ -1482,6 +1450,7 @@ function createPeerConnection(peerId) {
 if (tabRoleMainBtn) tabRoleMainBtn.addEventListener("click", () => setActiveTab("roleMain"));
 if (tabRoleSpecialBtn) tabRoleSpecialBtn.addEventListener("click", () => setActiveTab("roleSpecial"));
 if (tabSharedBoardBtn) tabSharedBoardBtn.addEventListener("click", () => setActiveTab("sharedBoard"));
+if (tabFieldBtn) tabFieldBtn.addEventListener("click", () => setActiveTab("field"));
 if (tabNotesBtn) tabNotesBtn.addEventListener("click", () => setActiveTab("notes"));
 if (tabSettingsBtn) tabSettingsBtn.addEventListener("click", () => setActiveTab("settings"));
 
@@ -1496,6 +1465,47 @@ if (caseOverlayCloseBtn) caseOverlayCloseBtn.addEventListener("click", closeOver
 if (overlayBackdrop) {
   overlayBackdrop.addEventListener("click", (e) => {
     if (e.target === overlayBackdrop) closeOverlay();
+  });
+}
+
+// === Saha Analizcisi modal kontrolleri ===
+if (fieldTalkCloseBtn) {
+  fieldTalkCloseBtn.addEventListener("click", () => {
+    fieldTalkModal.style.display = "none";
+  });
+}
+
+if (fieldTalkForm) {
+  fieldTalkForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (!fieldCurrentZoneId) return;
+
+    const text = (fieldTalkInput.value || "").trim();
+    if (!text) return;
+
+    if (!fieldConversations[fieldCurrentZoneId]) {
+      fieldConversations[fieldCurrentZoneId] = [];
+    }
+    fieldConversations[fieldCurrentZoneId].push({
+      from: "player",
+      text
+    });
+
+    // Mesajı hemen modalda göster
+    const bubble = document.createElement("div");
+    bubble.className = "interrogation-bubble player";
+    bubble.textContent = "Sen: " + text;
+    fieldTalkMessages.appendChild(bubble);
+    fieldTalkMessages.scrollTop = fieldTalkMessages.scrollHeight;
+
+    // Sunucuya yolla
+    socket.emit("fieldTalk", {
+      zoneId: fieldCurrentZoneId,
+      question: text,
+      history: fieldConversations[fieldCurrentZoneId]
+    });
+
+    fieldTalkInput.value = "";
   });
 }
 
@@ -2181,15 +2191,21 @@ socket.on("fieldReply", (data) => {
     text: answer
   });
 
-  // Eğer şu an saha analizcisi ve bu bölge açıksa sohbet ekranını yenile
+  // Eğer şu an saha analizcisi bu bölgeyle meşgulse ve modal açıksa ekrana da bas
   if (
     myRole === "sahaanalizcisi" &&
-    currentGameTab === "roleSpecial" &&
-    fieldCurrentZoneId === zoneId
+    fieldCurrentZoneId === zoneId &&
+    fieldTalkModal &&
+    fieldTalkModal.style.display !== "none"
   ) {
-    renderFieldZoneDetail();
+    const bubble = document.createElement("div");
+    bubble.className = "interrogation-bubble suspect";
+    bubble.textContent = "NPC: " + answer;
+    fieldTalkMessages.appendChild(bubble);
+    fieldTalkMessages.scrollTop = fieldTalkMessages.scrollHeight;
   }
 });
+
 
 
 
