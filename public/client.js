@@ -1239,53 +1239,6 @@ function openFieldTalkModal() {
 }
 
 
-
-  const inputEl = document.getElementById("fieldInput");
-  const sendBtn = document.getElementById("fieldSendBtn");
-  const backBtn = document.getElementById("fieldBackBtn");
-
-  function sendFieldMessage() {
-    if (!inputEl) return;
-    const text = (inputEl.value || "").trim();
-    if (!text) return;
-
-    if (!fieldConversations[fieldCurrentZoneId]) {
-      fieldConversations[fieldCurrentZoneId] = [];
-    }
-    fieldConversations[fieldCurrentZoneId].push({
-      from: "player",
-      text
-    });
-
-    // Sunucuya gönder – polis sorgusundaki gibi tüm geçmişi yolluyoruz
-    socket.emit("fieldTalk", {
-      zoneId: fieldCurrentZoneId,
-      question: text,
-      history: fieldConversations[fieldCurrentZoneId]
-    });
-
-    inputEl.value = "";
-  }
-
-  if (sendBtn && inputEl) {
-    sendBtn.addEventListener("click", () => sendFieldMessage());
-    inputEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        sendFieldMessage();
-      }
-    });
-  }
-
-  if (backBtn) {
-    backBtn.addEventListener("click", () => {
-      fieldCurrentZoneId = null;
-      const box = document.getElementById("fieldDetailBox");
-      if (box) box.innerHTML = "";
-    });
-  }
-}
-
 function sendInterrogationQuestion() {
   if (myRole !== "polis") return;
   if (!currentSuspectId) return;
