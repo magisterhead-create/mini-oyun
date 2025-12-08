@@ -188,8 +188,25 @@ const ROLE_CONFIG = {
     displayName: "Güvenlik",
     specialTabLabel: "Gözetim",
     description: "Kamera kayıtlarını ve güvenlik açıklarını inceleyen oyuncu."
+  },
+  sahaanalizcisi: {
+    displayName: "Saha Analizcisi",
+    specialTabLabel: "Saha Haritası",
+    description: "Şehrin belirli noktalarını analiz ederek ipuçları çıkarır."
+  }
+
+};
+const FIELD_ZONES = {
+  trash_area: {
+    id: "trash_area",
+    name: "Çöp Bölgesi",
+    img: "/assets/Resim2.png", // tıklayınca açılan görsel
+    desc: "Kapşonlu biri çöplerin orada oyalanıyor. Seni fark etmiş gibi.",
+    npcPrompt:
+      "Sen saha analizcisisin. Halktan bilgi topluyorsun. Karşındaki kapşonlu biri seni fark etti, tedirgin davranıyor. Sahaya uygun kısa, doğal cevaplar ver."
   }
 };
+
 const CODEBREAKER_SECTIONS = {
   whatsapp: {
     label: "WhatsApp",
@@ -368,6 +385,7 @@ function updateMyRoleInfo() {
   else if (myRole === "polis") text = "Rolün: Polis";
   else if (myRole === "ajan") text = "Rolün: Ajan";
   else if (myRole === "güvenlik") text = "Rolün: Güvenlik";
+  else if (myRole === "sahaanalizcisi") text = "Rolün: Saha Analizcisi";
   else text = "Rolün: (henüz seçilmedi)";
 
   if (myRoleInfo) myRoleInfo.textContent = text;
@@ -962,7 +980,72 @@ else if (myRole === "kodkırıcı") {
     });
   });
 }
+else if (myRole === "sahaanalizcisi") {
 
+      gameTabContent.innerHTML = `
+        <h3>Saha Haritası</h3>
+        <p style="font-size:12px; color: var(--text-muted); margin-bottom:8px;">
+          Harita üzerindeki bölgeleri inceleyerek ipuçları topla.
+        </p>
+
+        <div class="players-box" style="text-align:center;">
+          <img src="/assets/Resim1.png"
+               id="fieldMapImg"
+               style="max-width:100%; border-radius:8px; cursor:pointer;" />
+          <div style="margin-top:6px; font-size:12px; color:var(--text-muted);">
+            Haritanın belirli noktalarına tıklayabilirsiniz.
+          </div>
+        </div>
+
+        <div id="fieldDetailBox" style="margin-top:12px;"></div>
+      `;
+
+      // --- HARİTA TIKLAMA BÖLGESİ (Şimdilik sadece “çöp bölgesi”)
+      const mapEl = document.getElementById("fieldMapImg");
+      const detailBox = document.getElementById("fieldDetailBox");
+
+      if (mapEl) {
+        mapEl.addEventListener("click", () => {
+          const zone = FIELD_ZONES.trash_area;
+
+          detailBox.innerHTML = `
+            <div class="players-box" style="margin-top:10px;">
+              <img src="${zone.img}" style="max-width:100%; border-radius:8px;" />
+              <p style="font-size:13px; margin-top:6px;">${zone.desc}</p>
+
+              <div style="display:flex; gap:8px; margin-top:8px;">
+                <button id="fieldTalkBtn" class="btn-primary btn-small">Konuş</button>
+                <button id="fieldBackBtn" class="btn-secondary btn-small">Geri</button>
+              </div>
+            </div>
+          `;
+
+          const talkBtn = document.getElementById("fieldTalkBtn");
+          const backBtn = document.getElementById("fieldBackBtn");
+
+          if (backBtn) {
+            backBtn.addEventListener("click", () => {
+              detailBox.innerHTML = "";
+            });
+          }
+
+          if (talkBtn) {
+            talkBtn.addEventListener("click", () => {
+              socket.emit("fieldTalk", {
+                zoneId: zone.id,
+                prompt: zone.npcPrompt
+              });
+
+              detailBox.innerHTML += `
+                <p style="font-size:12px; color:var(--text-muted); margin-top:6px;">
+                  NPC düşünüyor...
+                </p>
+              `;
+            });
+          }
+        });
+      }
+    }
 
     // 2.c) Diğer roller için placeholder
     else {
@@ -975,6 +1058,7 @@ else if (myRole === "kodkırıcı") {
       `;
     }
   }
+    
 
   // 3) ORTAK TAHTA
   else if (currentGameTab === "sharedBoard") {
@@ -1603,6 +1687,7 @@ if (p.role === "kodkırıcı") roleLabel = "Kod Kırıcı";
 else if (p.role === "polis") roleLabel = "Polis";
 else if (p.role === "ajan") roleLabel = "Ajan";
 else if (p.role === "güvenlik") roleLabel = "Güvenlik";
+else if (p.role === "sahaanalizcisi") roleLabel = "Saha Analizcisi";
 else roleLabel = "Rol seçilmedi";
 
     let readyHtml = "";
@@ -1890,6 +1975,18 @@ socket.on("interrogationReply", (data) => {
     renderCurrentTab();
   }
 });
+
+socket.on("fieldReply", (data) => {
+  const detailBox = document.getElementById("fieldDetailBox");
+  if (!detailBox) return;
+
+  detailBox.innerHTML += `
+    <div style="margin-top:6px; font-size:13px;">
+      <strong>NPC:</strong> ${data.answer}
+    </div>
+  `;
+});
+
 
 // Voice signaling
 socket.on("voiceNewPeer", async ({ peerId, polite }) => {
