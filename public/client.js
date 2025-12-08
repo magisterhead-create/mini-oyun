@@ -716,21 +716,25 @@ function setActiveTab(tabName) {
   buttons.forEach((btn) => {
     const id = btn.id;
     let thisTab = null;
-   if (id === "tabRoleMainBtn") thisTab = "roleMain";
-else if (id === "tabRoleSpecialBtn") thisTab = "roleSpecial";
-else if (id === "tabSharedBoardBtn") thisTab = "sharedBoard";
-else if (id === "tabFieldBtn") thisTab = "field";
-else if (id === "tabNotesBtn") thisTab = "notes";
-else if (id === "tabSettingsBtn") thisTab = "settings";
-    
-
+    if (id === "tabRoleMainBtn") thisTab = "roleMain";
+    else if (id === "tabRoleSpecialBtn") thisTab = "roleSpecial";
+    else if (id === "tabSharedBoardBtn") thisTab = "sharedBoard";
+    else if (id === "tabFieldBtn") thisTab = "field";
+    else if (id === "tabNotesBtn") thisTab = "notes";
+    else if (id === "tabSettingsBtn") thisTab = "settings";
 
     if (thisTab === tabName) btn.classList.add("active");
     else btn.classList.remove("active");
   });
 
+  // Saha sekmesinden çıktıysak konuşma modalını kapat
+  if (tabName !== "field" && fieldTalkModal) {
+    fieldTalkModal.style.display = "none";
+  }
+
   renderCurrentTab();
 }
+
 
 function renderCurrentTab() {
   if (!gameTabContent) return;
