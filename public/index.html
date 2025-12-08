@@ -540,8 +540,33 @@
         </div>
       </div>
     </div>
+<!-- === SAHA ANALİZCİSİ — NPC KONUŞMA MODALİ === -->
+<div id="fieldTalkModal" class="interrogation-modal" style="display:none;">
+  
+  <div class="interrogation-window">
+
+    <div class="interrogation-header">
+      <div class="interrogation-title">Mahalle Sakini ile Konuş</div>
+      <button id="fieldTalkCloseBtn" class="close-btn">×</button>
+    </div>
+
+    <div id="fieldTalkMessages" class="interrogation-messages"></div>
+
+    <form id="fieldTalkForm" class="interrogation-input-row">
+      <input
+        id="fieldTalkInput"
+        placeholder="Bir şey sor..."
+        autocomplete="off"
+      />
+      <button class="btn-primary" type="submit">Gönder</button>
+    </form>
+
+  </div>
+
+</div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="/client.js"></script>
+        
   </body>
 </html>
