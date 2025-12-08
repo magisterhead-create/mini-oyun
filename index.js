@@ -760,26 +760,130 @@ socket.on("policeInterrogate", async ({ suspectId, question, history }) => {
   });
 });
 
-  socket.on("npcTalk", async ({ zoneId, question, prompt }) => {
+   // 🔻 POLİS SORGU EVENTİ
+socket.on("policeInterrogate", async ({ suspectId, question, history }) => {
+  const roomCode = socket.data?.roomCode;
+  if (!roomCode || !rooms[roomCode]) return;
+
+  const room = rooms[roomCode];
+  const player = room.players[socket.id];
+  if (!player) return;
+
+  // Sadece polis sorgu yapabilsin
+  if (player.role !== "polis") {
+    return;
+  }
+
+  const c = room.puzzle;
+  if (!c || !c.suspects) return;
+
+  const suspect = c.suspects.find((s) => s.id === suspectId);
+  if (!suspect) return;
+
+  const q = (question || "").trim();
+  if (!q) return;
+
+  let answerText;
+
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [
-        { role: "system", content: prompt },
-        { role: "user", content: question }
-      ]
+    // ⭐ Asıl AI cevabı
+    answerText = await generateAiSuspectReply({
+      caseData: c,
+      suspect,
+      question: q,
+      history: history || []
     });
-
-    socket.emit("npcReply", {
-      reply: response.choices[0].message.content
-    });
-
   } catch (err) {
-    socket.emit("npcReply", {
-      reply: "NPC tedirgin görünüyor ve konuşmak istemiyor."
+    console.error("AI sorgu cevabı üretilirken hata:", err);
+
+    // ⭐ Hata olursa rule-based mock'a düş
+    answerText = mockSuspectReply({
+      caseData: c,
+      suspect,
+      question: q,
+      history: history || []
+    });
+  }
+
+  // Cevabı istemciye gönder
+  socket.emit("interrogationReply", {
+    suspectId,
+    answer: answerText
+  });
+});
+  
+  // === SAHA ANALİZCİSİ — NPC TALK ===
+socket.on("fieldTalk", async (data) => {
+  const { zoneId, question, history, prompt } = data;
+
+  const basePrompt = prompt || `
+Sen mahallede yaşayan sıradan bir insansın.
+Konuşma tarzın doğal, kısa ve günlük olsun.
+Bazen bir ipucu ver, bazen hiçbir şey bilmediğini söyle.
+Kaba olma, tehdit hissettiğinde kısa cevap ver.
+`;
+
+  const conversationText = (history || [])
+    .map((m) => `${m.from === "player" ? "Oyuncu" : "NPC"}: ${m.text}`)
+    .join("\n");
+
+  const fullPrompt = `
+${basePrompt}
+
+Geçmiş konuşma:
+${conversationText}
+
+Oyuncunun son sorusu:
+"${question}"
+
+NPC olarak tek bir kısa cevap ver:
+`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: basePrompt },
+        { role: "user", content: fullPrompt }
+      ],
+      max_tokens: 70,
+      temperature: 0.8
+    });
+
+    const aiAnswer = completion.choices[0].message.content.trim();
+
+    io.to(socket.id).emit("fieldReply", {
+      zoneId,
+      answer: aiAnswer
+    });
+  } catch (err) {
+    console.error("fieldTalk error:", err);
+    io.to(socket.id).emit("fieldReply", {
+      zoneId,
+      answer: "Bilmiyorum dostum, başka birine sor istersen..."
     });
   }
 });
+  
+  // Host oyunu başlat
+  socket.on("startGame", () => {
+    const roomCode = socket.data?.roomCode;
+    if (!roomCode || !rooms[roomCode]) return;
+
+    const room = rooms[roomCode];
+
+    // Host değilse izin yok
+    if (socket.id !== room.hostId) return;
+
+    // 1) CASE SEÇİLMİŞ Mİ?
+    if (!room.currentCaseId || !room.puzzle) {
+      socket.emit(
+        "lobbyMessage",
+        "Oyunu başlatmadan önce bir vaka seçmelisin."
+      );
+      return;
+    }
+
 
 
   // Host oyunu başlat
