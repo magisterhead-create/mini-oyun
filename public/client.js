@@ -1020,104 +1020,119 @@ else if (myRole === "kodkırıcı") {
     });
   });
 }
-    else if (myRole === "sahaanalizcisi") {
+        else if (myRole === "sahaanalizcisi") {
       gameTabContent.innerHTML = `
         <h3>Saha Haritası</h3>
         <p style="font-size:12px; color: var(--text-muted); margin-bottom:8px;">
-          Harita üzerindeki belirli noktalara tıklayarak ipuçları topla. Şimdilik sadece bir alan aktif.
+          Harita üzerindeki işaretli noktalara tıklayarak ipuçları topla. Şimdilik sadece bir nokta aktif.
         </p>
 
         <div class="players-box" style="text-align:center;">
-          <img src="/assets/Resim1.png"
-               id="fieldMapImg"
-               style="max-width:100%; border-radius:8px; cursor:pointer;" />
+          <div id="fieldMapWrapper"
+               style="position:relative; display:inline-block; max-width:100%;">
+            <img src="/assets/Resim1.png"
+                 id="fieldMapImg"
+                 style="max-width:100%; border-radius:8px; display:block;" />
+          </div>
           <div style="margin-top:6px; font-size:12px; color:var(--text-muted);">
-            Haritanın belirli noktalarına tıklayabilirsiniz (diğer bölgeler prototip).
+            Sadece görünen noktalara tıklanabilir.
           </div>
         </div>
 
         <div id="fieldDetailBox" style="margin-top:12px;"></div>
       `;
 
-      const mapEl = document.getElementById("fieldMapImg");
+      const wrapper   = document.getElementById("fieldMapWrapper");
       const detailBox = document.getElementById("fieldDetailBox");
 
-      if (mapEl && detailBox) {
-        mapEl.addEventListener("click", (e) => {
-          const rect = mapEl.getBoundingClientRect();
-          const clickX = e.clientX - rect.left;
-          const clickY = e.clientY - rect.top;
-          const nx = clickX / rect.width;   // 0–1
-          const ny = clickY / rect.height;  // 0–1
+      if (wrapper && detailBox) {
+        // Her bölge için bir marker oluştur
+        Object.values(FIELD_ZONES).forEach((zone) => {
+          if (!zone.rect) return;
+          const r = zone.rect;
 
-          // Hangi bölgeye tıklandı?
-          let clickedZone = null;
-          for (const zone of Object.values(FIELD_ZONES)) {
-            if (!zone.rect) continue;
-            const r = zone.rect;
-            if (nx >= r.xMin && nx <= r.xMax && ny >= r.yMin && ny <= r.yMax) {
-              clickedZone = zone;
-              break;
+          // Merkez noktayı hesapla (0–1 arası)
+          const cx = (r.xMin + r.xMax) / 2;
+          const cy = (r.yMin + r.yMax) / 2;
+
+          const marker = document.createElement("button");
+          marker.type = "button";
+          marker.className = "field-marker";
+          marker.style.position = "absolute";
+          marker.style.left = (cx * 100) + "%";
+          marker.style.top = (cy * 100) + "%";
+          marker.style.transform = "translate(-50%, -50%)";
+          marker.style.width = "14px";
+          marker.style.height = "14px";
+          marker.style.borderRadius = "999px";
+          marker.style.border = "2px solid rgba(255,255,255,0.9)";
+          marker.style.background = "rgba(59,130,246,0.9)";
+          marker.style.boxShadow = "0 0 6px rgba(59,130,246,0.9)";
+          marker.style.cursor = "pointer";
+          marker.style.padding = "0";
+          marker.style.outline = "none";
+
+          marker.title = zone.name || "Bölge";
+
+          marker.addEventListener("click", (e) => {
+            e.stopPropagation(); // haritanın kendisine tıklama gitmesin
+
+            // Eğer bu bölge henüz detaylı değilse placeholder göster
+            if (!zone.img) {
+              detailBox.innerHTML = `
+                <div class="players-box" style="margin-top:10px;">
+                  <p style="font-size:13px; margin-top:6px;">
+                    <strong>${zone.name}</strong> bölgesi henüz detaylandırılmadı.
+                    Daha sonra buraya sahne ve NPC diyalogları eklenecek.
+                  </p>
+                </div>
+              `;
+              return;
             }
-          }
 
-          // Hiçbir bölgeye denk gelmediyse: hiçbir şey yapma
-          if (!clickedZone) {
-            return;
-          }
-
-          // Eğer bu bölge henüz detaylandırılmadıysa placeholder göster
-          if (!clickedZone.img) {
+            // Aktif bölge (şu an sadece trash_area)
             detailBox.innerHTML = `
               <div class="players-box" style="margin-top:10px;">
-                <p style="font-size:13px; margin-top:6px;">
-                  <strong>${clickedZone.name}</strong> bölgesi henüz detaylandırılmadı.
-                  Daha sonra buraya sahne ve NPC diyalogları eklenecek.
-                </p>
+                <img src="${zone.img}" style="max-width:100%; border-radius:8px;" />
+                <p style="font-size:13px; margin-top:6px;">${zone.desc}</p>
+
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                  <button id="fieldTalkBtn" class="btn-primary btn-small">Konuş</button>
+                  <button id="fieldBackBtn" class="btn-secondary btn-small">Geri</button>
+                </div>
               </div>
             `;
-            return;
-          }
 
-          // Aktif bölge (şu an sadece trash_area)
-          detailBox.innerHTML = `
-            <div class="players-box" style="margin-top:10px;">
-              <img src="${clickedZone.img}" style="max-width:100%; border-radius:8px;" />
-              <p style="font-size:13px; margin-top:6px;">${clickedZone.desc}</p>
+            const talkBtn = document.getElementById("fieldTalkBtn");
+            const backBtn = document.getElementById("fieldBackBtn");
 
-              <div style="display:flex; gap:8px; margin-top:8px;">
-                <button id="fieldTalkBtn" class="btn-primary btn-small">Konuş</button>
-                <button id="fieldBackBtn" class="btn-secondary btn-small">Geri</button>
-              </div>
-            </div>
-          `;
-
-          const talkBtn = document.getElementById("fieldTalkBtn");
-          const backBtn = document.getElementById("fieldBackBtn");
-
-          if (backBtn) {
-            backBtn.addEventListener("click", () => {
-              detailBox.innerHTML = "";
-            });
-          }
-
-          if (talkBtn && clickedZone.npcPrompt) {
-            talkBtn.addEventListener("click", () => {
-              socket.emit("fieldTalk", {
-                zoneId: clickedZone.id,
-                prompt: clickedZone.npcPrompt
+            if (backBtn) {
+              backBtn.addEventListener("click", () => {
+                detailBox.innerHTML = "";
               });
+            }
 
-              detailBox.innerHTML += `
-                <p style="font-size:12px; color:var(--text-muted); margin-top:6px;">
-                  NPC düşünüyor...
-                </p>
-              `;
-            });
-          }
+            if (talkBtn && zone.npcPrompt) {
+              talkBtn.addEventListener("click", () => {
+                socket.emit("fieldTalk", {
+                  zoneId: zone.id,
+                  prompt: zone.npcPrompt
+                });
+
+                detailBox.innerHTML += `
+                  <p style="font-size:12px; color:var(--text-muted); margin-top:6px;">
+                    NPC düşünüyor...
+                  </p>
+                `;
+              });
+            }
+          });
+
+          wrapper.appendChild(marker);
         });
       }
     }
+
 
 
     // 2.c) Diğer roller için placeholder
