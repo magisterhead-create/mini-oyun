@@ -290,6 +290,56 @@ const CODEBREAKER_SECTIONS = {
   }
 };
 
+const FIELD_ZONES = {
+  // 1) Şu an aktif olan bölge: Çöp alanı
+  trash_area: {
+    id: "trash_area",
+    name: "Çöp Bölgesi",
+    img: "/assets/Resim2.png",
+    desc: "Kapşonlu biri çöplerin orada oyalanıyor. Seni fark etmiş gibi.",
+    npcPrompt:
+      "Sen saha analizcisisin. Halktan bilgi topluyorsun. Karşındaki kapşonlu biri seni fark etti, tedirgin davranıyor. Sahaya uygun kısa, doğal cevaplar ver.",
+    // Harita üzerinde tıklanabilir dikdörtgen (0–1 arasında oransal)
+    rect: {
+      xMin: 0.58,
+      xMax: 0.80,
+      yMin: 0.55,
+      yMax: 0.85
+    }
+  },
+
+  // 2) Şimdilik placeholder bölgeler
+  park: {
+    id: "park",
+    name: "Park",
+    rect: {
+      xMin: 0.32,
+      xMax: 0.68,
+      yMin: 0.30,
+      yMax: 0.55
+    }
+  },
+  apt_block: {
+    id: "apt_block",
+    name: "Apartmanlar",
+    rect: {
+      xMin: 0.05,
+      xMax: 0.35,
+      yMin: 0.10,
+      yMax: 0.45
+    }
+  },
+  warehouse: {
+    id: "warehouse",
+    name: "Depo / Sanayi",
+    rect: {
+      xMin: 0.55,
+      xMax: 0.95,
+      yMin: 0.05,
+      yMax: 0.30
+    }
+  }
+};
 
 
 
@@ -980,12 +1030,11 @@ else if (myRole === "kodkırıcı") {
     });
   });
 }
-else if (myRole === "sahaanalizcisi") {
-
+    else if (myRole === "sahaanalizcisi") {
       gameTabContent.innerHTML = `
         <h3>Saha Haritası</h3>
         <p style="font-size:12px; color: var(--text-muted); margin-bottom:8px;">
-          Harita üzerindeki bölgeleri inceleyerek ipuçları topla.
+          Harita üzerindeki belirli noktalara tıklayarak ipuçları topla. Şimdilik sadece bir alan aktif.
         </p>
 
         <div class="players-box" style="text-align:center;">
@@ -993,25 +1042,58 @@ else if (myRole === "sahaanalizcisi") {
                id="fieldMapImg"
                style="max-width:100%; border-radius:8px; cursor:pointer;" />
           <div style="margin-top:6px; font-size:12px; color:var(--text-muted);">
-            Haritanın belirli noktalarına tıklayabilirsiniz.
+            Haritanın belirli noktalarına tıklayabilirsiniz (diğer bölgeler prototip).
           </div>
         </div>
 
         <div id="fieldDetailBox" style="margin-top:12px;"></div>
       `;
 
-      // --- HARİTA TIKLAMA BÖLGESİ (Şimdilik sadece “çöp bölgesi”)
       const mapEl = document.getElementById("fieldMapImg");
       const detailBox = document.getElementById("fieldDetailBox");
 
-      if (mapEl) {
-        mapEl.addEventListener("click", () => {
-          const zone = FIELD_ZONES.trash_area;
+      if (mapEl && detailBox) {
+        mapEl.addEventListener("click", (e) => {
+          const rect = mapEl.getBoundingClientRect();
+          const clickX = e.clientX - rect.left;
+          const clickY = e.clientY - rect.top;
+          const nx = clickX / rect.width;   // 0–1
+          const ny = clickY / rect.height;  // 0–1
 
+          // Hangi bölgeye tıklandı?
+          let clickedZone = null;
+          for (const zone of Object.values(FIELD_ZONES)) {
+            if (!zone.rect) continue;
+            const r = zone.rect;
+            if (nx >= r.xMin && nx <= r.xMax && ny >= r.yMin && ny <= r.yMax) {
+              clickedZone = zone;
+              break;
+            }
+          }
+
+          // Hiçbir bölgeye denk gelmediyse: hiçbir şey yapma
+          if (!clickedZone) {
+            return;
+          }
+
+          // Eğer bu bölge henüz detaylandırılmadıysa placeholder göster
+          if (!clickedZone.img) {
+            detailBox.innerHTML = `
+              <div class="players-box" style="margin-top:10px;">
+                <p style="font-size:13px; margin-top:6px;">
+                  <strong>${clickedZone.name}</strong> bölgesi henüz detaylandırılmadı.
+                  Daha sonra buraya sahne ve NPC diyalogları eklenecek.
+                </p>
+              </div>
+            `;
+            return;
+          }
+
+          // Aktif bölge (şu an sadece trash_area)
           detailBox.innerHTML = `
             <div class="players-box" style="margin-top:10px;">
-              <img src="${zone.img}" style="max-width:100%; border-radius:8px;" />
-              <p style="font-size:13px; margin-top:6px;">${zone.desc}</p>
+              <img src="${clickedZone.img}" style="max-width:100%; border-radius:8px;" />
+              <p style="font-size:13px; margin-top:6px;">${clickedZone.desc}</p>
 
               <div style="display:flex; gap:8px; margin-top:8px;">
                 <button id="fieldTalkBtn" class="btn-primary btn-small">Konuş</button>
@@ -1029,11 +1111,11 @@ else if (myRole === "sahaanalizcisi") {
             });
           }
 
-          if (talkBtn) {
+          if (talkBtn && clickedZone.npcPrompt) {
             talkBtn.addEventListener("click", () => {
               socket.emit("fieldTalk", {
-                zoneId: zone.id,
-                prompt: zone.npcPrompt
+                zoneId: clickedZone.id,
+                prompt: clickedZone.npcPrompt
               });
 
               detailBox.innerHTML += `
@@ -1046,6 +1128,7 @@ else if (myRole === "sahaanalizcisi") {
         });
       }
     }
+
 
     // 2.c) Diğer roller için placeholder
     else {
