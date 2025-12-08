@@ -163,6 +163,9 @@ let notesText = "";
 let codebreakerEvidence = [];
 let codebreakerView = "menu";   // "menu" | "whatsapp" | "calls" | "gallery" | "notes" | "files" | "location"
 
+// Saha Analizcisi — bölge sohbetleri
+let fieldCurrentZoneId = null;      // şu an açık olan bölge
+let fieldConversations = {};        // { zoneId: [ { from:"player"|"npc", text } ] }
 
 // =============================
 // ROL KONFİG (özel sekme isimleri)
@@ -1212,6 +1215,108 @@ else if (myRole === "kodkırıcı") {
     `;
   }
 }
+function renderFieldZoneDetail() {
+  if (!fieldCurrentZoneId) return;
+  const zone = FIELD_ZONES[fieldCurrentZoneId];
+  if (!zone) return;
+
+  const detailBox = document.getElementById("fieldDetailBox");
+  if (!detailBox) return;
+
+  const history = fieldConversations[fieldCurrentZoneId] || [];
+
+  const chatHtml =
+    history.length === 0
+      ? `
+        <div class="setup-note">
+          NPC ile sohbet etmek için aşağıya mesaj yaz.
+          Gündelik, mahalle havasında konuş; o da öyle cevap verecek.
+        </div>
+      `
+      : history
+          .map((m) => {
+            const isPlayer = m.from === "player";
+            const align = isPlayer ? "right" : "left";
+            const who = isPlayer ? "Sen" : "NPC";
+            return `
+              <div style="text-align:${align}; margin-bottom:4px; font-size:13px;">
+                <strong>${who}:</strong> ${m.text}
+              </div>
+            `;
+          })
+          .join("");
+
+  detailBox.innerHTML = `
+    <div class="players-box" style="margin-top:10px;">
+      ${zone.img ? `<img src="${zone.img}" style="max-width:100%; border-radius:8px;" />` : ""}
+      ${zone.desc ? `<p style="font-size:13px; margin-top:6px;">${zone.desc}</p>` : ""}
+
+      <div class="players-box" style="margin-top:8px; max-height:160px; overflow-y:auto;">
+        ${chatHtml}
+      </div>
+
+      <div style="display:flex; gap:6px; margin-top:6px;">
+        <input
+          id="fieldInput"
+          placeholder="NPC'ye ne söylemek istiyorsun?"
+          style="margin-top:0; flex:1;"
+        />
+        <button id="fieldSendBtn" class="btn-primary btn-small">Gönder</button>
+        <button id="fieldBackBtn" class="btn-secondary btn-small">Kapat</button>
+      </div>
+      <div class="setup-note" style="margin-top:4px;">
+        NPC sıradan bir mahalle sakini gibi konuşmalı; bazen işe yarar bir ipucu verir,
+        bazen de hiçbir şey bilmeyebilir.
+      </div>
+    </div>
+  `;
+
+  const inputEl = document.getElementById("fieldInput");
+  const sendBtn = document.getElementById("fieldSendBtn");
+  const backBtn = document.getElementById("fieldBackBtn");
+
+  function sendFieldMessage() {
+    if (!inputEl) return;
+    const text = (inputEl.value || "").trim();
+    if (!text) return;
+
+    if (!fieldConversations[fieldCurrentZoneId]) {
+      fieldConversations[fieldCurrentZoneId] = [];
+    }
+    fieldConversations[fieldCurrentZoneId].push({
+      from: "player",
+      text
+    });
+
+    // Sunucuya gönder – polis sorgusundaki gibi tüm geçmişi yolluyoruz
+    socket.emit("fieldTalk", {
+      zoneId: fieldCurrentZoneId,
+      question: text,
+      history: fieldConversations[fieldCurrentZoneId]
+    });
+
+    inputEl.value = "";
+    renderFieldZoneDetail(); // kendi mesajını hemen gör
+  }
+
+  if (sendBtn && inputEl) {
+    sendBtn.addEventListener("click", () => sendFieldMessage());
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        sendFieldMessage();
+      }
+    });
+  }
+
+  if (backBtn) {
+    backBtn.addEventListener("click", () => {
+      fieldCurrentZoneId = null;
+      const box = document.getElementById("fieldDetailBox");
+      if (box) box.innerHTML = "";
+    });
+  }
+}
 
 function sendInterrogationQuestion() {
   if (myRole !== "polis") return;
@@ -2065,15 +2170,27 @@ socket.on("interrogationReply", (data) => {
 });
 
 socket.on("fieldReply", (data) => {
-  const detailBox = document.getElementById("fieldDetailBox");
-  if (!detailBox) return;
+  const { zoneId, answer } = data || {};
+  if (!zoneId || !answer) return;
 
-  detailBox.innerHTML += `
-    <div style="margin-top:6px; font-size:13px;">
-      <strong>NPC:</strong> ${data.answer}
-    </div>
-  `;
+  if (!fieldConversations[zoneId]) {
+    fieldConversations[zoneId] = [];
+  }
+  fieldConversations[zoneId].push({
+    from: "npc",
+    text: answer
+  });
+
+  // Eğer şu an saha analizcisi ve bu bölge açıksa sohbet ekranını yenile
+  if (
+    myRole === "sahaanalizcisi" &&
+    currentGameTab === "roleSpecial" &&
+    fieldCurrentZoneId === zoneId
+  ) {
+    renderFieldZoneDetail();
+  }
 });
+
 
 
 // Voice signaling
