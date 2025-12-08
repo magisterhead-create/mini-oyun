@@ -708,57 +708,6 @@ io.on("connection", (socket) => {
     broadcastRoomList();
   });
 
- // 🔻 POLİS SORGU EVENTİ
-socket.on("policeInterrogate", async ({ suspectId, question, history }) => {
-  const roomCode = socket.data?.roomCode;
-  if (!roomCode || !rooms[roomCode]) return;
-
-  const room = rooms[roomCode];
-  const player = room.players[socket.id];
-  if (!player) return;
-
-  // Sadece polis sorgu yapabilsin
-  if (player.role !== "polis") {
-    return;
-  }
-
-  const c = room.puzzle;
-  if (!c || !c.suspects) return;
-
-  const suspect = c.suspects.find((s) => s.id === suspectId);
-  if (!suspect) return;
-
-  const q = (question || "").trim();
-  if (!q) return;
-
-  let answerText;
-
-  try {
-    // ⭐ Asıl AI cevabı
-    answerText = await generateAiSuspectReply({
-      caseData: c,
-      suspect,
-      question: q,
-      history: history || []
-    });
-  } catch (err) {
-    console.error("AI sorgu cevabı üretilirken hata:", err);
-
-    // ⭐ Hata olursa rule-based mock'a düş
-    answerText = mockSuspectReply({
-      caseData: c,
-      suspect,
-      question: q,
-      history: history || []
-    });
-  }
-
-  // Cevabı istemciye gönder
-  socket.emit("interrogationReply", {
-    suspectId,
-    answer: answerText
-  });
-});
 
    // 🔻 POLİS SORGU EVENTİ
 socket.on("policeInterrogate", async ({ suspectId, question, history }) => {
@@ -865,27 +814,6 @@ NPC olarak tek bir kısa cevap ver:
   }
 });
   
-  // Host oyunu başlat
-  socket.on("startGame", () => {
-    const roomCode = socket.data?.roomCode;
-    if (!roomCode || !rooms[roomCode]) return;
-
-    const room = rooms[roomCode];
-
-    // Host değilse izin yok
-    if (socket.id !== room.hostId) return;
-
-    // 1) CASE SEÇİLMİŞ Mİ?
-    if (!room.currentCaseId || !room.puzzle) {
-      socket.emit(
-        "lobbyMessage",
-        "Oyunu başlatmadan önce bir vaka seçmelisin."
-      );
-      return;
-    }
-
-
-
   // Host oyunu başlat
   socket.on("startGame", () => {
     const roomCode = socket.data?.roomCode;
