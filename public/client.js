@@ -666,9 +666,18 @@ function resetUIToMenu() {
   if (roomListContainer) {
     roomListContainer.innerHTML = "Şu anda açık oda yok.";
   }
+  
 
   // voice temizle
   cleanupVoice();
+    // --- Saha Analizcisi UI reset ---
+  fieldCurrentZoneId = null;
+  fieldConversations = {};
+
+  if (fieldTalkModal) fieldTalkModal.style.display = "none";
+  if (fieldTalkMessages) fieldTalkMessages.innerHTML = "";
+  if (fieldTalkInput) fieldTalkInput.value = "";
+
 }
 
 // =============================
@@ -1216,6 +1225,11 @@ else if (myRole === "kodkırıcı") {
 }
 
 function openFieldTalkModal() {
+    // Sadece oyun içindeyken ve saha sekmesi açıksa, doğru rolde çalışsın
+  if (!inGame) return;
+  if (currentGameTab !== "field") return;
+  if (myRole !== "sahaanalizcisi") return;
+  
   if (!fieldCurrentZoneId) return;
   if (!fieldConversations[fieldCurrentZoneId]) {
     fieldConversations[fieldCurrentZoneId] = [];
