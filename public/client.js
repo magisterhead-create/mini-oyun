@@ -203,7 +203,14 @@ const ROLE_CONFIG = {
     displayName: "Saha Analizcisi",
     specialTabLabel: "Saha Haritası",
     description: "Şehrin belirli noktalarını analiz ederek ipuçları çıkarır."
+  },
+    tracker: {
+    displayName: "Tracker",
+    specialTabLabel: "Takip",
+    description:
+      "Şüphelilerin gün içi hareketlerini takip eden, zaman-konum çakışmalarını ortaya çıkaran rol."
   }
+
 
 };
 
@@ -341,6 +348,64 @@ const FIELD_ZONES = {
   }
 };
 
+// Tracker — takip verileri
+let trackerTargets = [
+  {
+    id: "suspect_a",
+    name: "Şüpheli A",
+    label: "Restoran Garsonu",
+    baseTimeline: [
+      "18:42 – Evden çıkış",
+      "19:05 – Metro giriş (Merkez İstasyon)",
+      "19:12 – Market önü güvenlik kamerası",
+      "19:20 – Otobüse biniş (Hat 34B)",
+      "19:48 – Ev yakını GPS sinyali"
+    ],
+    deepTimeline: [
+      "19:13 – Market içi kamera: Kurbanla aynı koridorda kısa karşılaşma",
+      "19:15 – Market çıkışı: Eldiven benzeri bir şey çöp kutusuna atılıyor",
+      "19:19 – Otobüs durağı civarında 3 dakika boyunca telefonda tartışma"
+    ]
+  },
+  {
+    id: "suspect_b",
+    name: "Şüpheli B",
+    label: "Restoran Şefi",
+    baseTimeline: [
+      "17:58 – Restorana giriş (arka kapı)",
+      "18:10 – Tedarikçi ile kısa görüşme",
+      "21:30 – Mutfak içi yoğun servis",
+      "22:10 – Kısa süreli mutfaktan çıkış",
+      "23:05 – Restorandan çıkış (arka kapı)"
+    ],
+    deepTimeline: [
+      "22:11 – Arka koridorda 2 dakikalık telefon görüşmesi, sesi yükseliyor",
+      "22:13 – Personel kapısı kamerada sigara içerken sinirli hareketler",
+      "23:02 – Nakit kasanın bulunduğu odanın yakınında 1 dakikalık görünme"
+    ]
+  },
+  {
+    id: "suspect_c",
+    name: "Şüpheli C",
+    label: "Restoran Ortağı",
+    baseTimeline: [
+      "16:30 – Ofise giriş",
+      "18:00 – Restorana kısa ziyaret",
+      "20:15 – Banka ATM kaydı (çekim)",
+      "22:20 – GPS: Restoran çevresine yakın",
+      "23:30 – Ev bölgesinde sabit sinyal"
+    ],
+    deepTimeline: [
+      "18:05 – Restoran girişinde kurbanla ayaküstü tartışma",
+      "20:17 – ATM güvenlik kamerasında cebine bir zarf yerleştirirken",
+      "22:23 – Restoranın yan sokağında 7 dakikalık bekleme kaydı"
+    ]
+  }
+];
+
+let trackerSelectedId = null;       // şu an kimin ekranı açık
+let trackerRevealed = {};           // { suspectId: true } -> detay açıldı mı
+
 
 
 // =============================
@@ -436,6 +501,7 @@ function updateMyRoleInfo() {
   else if (myRole === "ajan") text = "Rolün: Ajan";
   else if (myRole === "güvenlik") text = "Rolün: Güvenlik";
   else if (myRole === "sahaanalizcisi") text = "Rolün: Saha Analizcisi";
+  else if (myRole === "tracker") text = "Rolün: Tracker";
   else text = "Rolün: (henüz seçilmedi)";
 
   if (myRoleInfo) myRoleInfo.textContent = text;
@@ -1045,7 +1111,135 @@ else if (myRole === "kodkırıcı") {
     });
   });
 }
-        
+
+  else if (myRole === "tracker") {
+  const selected = trackerTargets.find(t => t.id === trackerSelectedId) || null;
+
+  // Sol: takip edilebilir kişiler listesi
+  const targetsHtml = trackerTargets
+    .map(t => {
+      const isActive = selected && selected.id === t.id;
+      return `
+        <div class="case-card ${isActive ? "selected" : ""}" data-tracker-id="${t.id}">
+          <div class="case-title">${t.name}</div>
+          <div class="case-meta">${t.label}</div>
+        </div>
+      `;
+    })
+    .join("");
+
+  // Sağ: seçilen kişinin zaman çizelgesi
+  let detailHtml = `
+    <div class="setup-note">
+      Bir kişiyi seçtiğinde, son 24 saat içindeki hareketleri burada göreceksin.
+    </div>
+  `;
+
+  if (selected) {
+    const baseLines = selected.baseTimeline
+      .map(l => `<li>${l}</li>`)
+      .join("");
+
+    const deepOpened = !!trackerRevealed[selected.id];
+    let deepBlock = "";
+
+    if (deepOpened) {
+      const deepLines = selected.deepTimeline
+        .map(l => `<li>${l}</li>`)
+        .join("");
+
+      deepBlock = `
+        <div class="label" style="margin-top:8px;">Detaylı Takip</div>
+        <ul class="tracker-timeline">
+          ${deepLines}
+        </ul>
+      `;
+    }
+
+    detailHtml = `
+      <div class="label">Son 24 Saat — ${selected.name}</div>
+      <ul class="tracker-timeline">
+        ${baseLines}
+      </ul>
+
+      ${deepBlock}
+
+      <div style="display:flex; gap:6px; margin-top:10px; flex-wrap:wrap;">
+        <button id="trackerFollowBtn" class="btn-primary btn-small">
+          ${deepOpened ? "Takip Ediliyor" : "Takip Et"}
+        </button>
+        <button id="trackerPushBoardBtn" class="btn-secondary btn-small">
+          Tahtaya Aktar
+        </button>
+      </div>
+
+      <div class="setup-note" style="margin-top:4px;">
+        “Takip Et” ile daha derin kameralara ve GPS loglarına erişirsin.
+        “Tahtaya Aktar” ile bu kişinin hareket özetini ortak tahtaya yazarsın.
+      </div>
+    `;
+  }
+
+  gameTabContent.innerHTML = `
+    <h3>Tracker — Takip Paneli</h3>
+    <p style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">
+      Şüphelilerin gün içindeki konumlarını ve saatlerini inceleyip
+      alibilerindeki boşlukları yakalamaya çalış.
+    </p>
+
+    <div style="display:grid; grid-template-columns:1.1fr 1.6fr; gap:10px;">
+      <div class="players-box" style="max-height:260px; overflow-y:auto;">
+        ${targetsHtml}
+      </div>
+      <div class="players-box" style="min-height:220px;">
+        ${detailHtml}
+      </div>
+    </div>
+  `;
+
+  // Kişi seçme
+  const cards = gameTabContent.querySelectorAll("[data-tracker-id]");
+  cards.forEach(card => {
+    card.addEventListener("click", () => {
+      const id = card.getAttribute("data-tracker-id");
+      trackerSelectedId = id;
+      renderCurrentTab();
+    });
+  });
+
+  // Takip Et
+  const followBtn = document.getElementById("trackerFollowBtn");
+  if (followBtn && selected) {
+    followBtn.addEventListener("click", () => {
+      trackerRevealed[selected.id] = true;
+      renderCurrentTab();
+    });
+  }
+
+  // Tahtaya Aktar
+  const pushBtn = document.getElementById("trackerPushBoardBtn");
+  if (pushBtn && selected) {
+    pushBtn.addEventListener("click", () => {
+      const lines = [
+        `Tracker – ${selected.name} hareket özeti:`,
+        ...selected.baseTimeline
+      ];
+
+      if (trackerRevealed[selected.id]) {
+        lines.push("Detaylı takip:");
+        lines.push(...selected.deepTimeline);
+      }
+
+      const textBlock = lines.join("\n");
+
+      addEvidenceToNotes(textBlock);
+      pushEvidenceToBoard(textBlock);
+
+      showLobbyInfo(`${selected.name} için takip özeti tahtaya aktarıldı.`);
+    });
+  }
+}
+
 
 
 
@@ -1059,7 +1253,7 @@ else if (myRole === "kodkırıcı") {
         </p>
       `;
     }
-  }
+    
       // 3) SAHA ANALİZİ TAB'I (field)
   else if (currentGameTab === "field") {
     if (myRole !== "sahaanalizcisi") {
@@ -1862,6 +2056,7 @@ else if (p.role === "polis") roleLabel = "Polis";
 else if (p.role === "ajan") roleLabel = "Ajan";
 else if (p.role === "güvenlik") roleLabel = "Güvenlik";
 else if (p.role === "sahaanalizcisi") roleLabel = "Saha Analizcisi";
+else if (p.role === "tracker") roleLabel = "Tracker";
 else roleLabel = "Rol seçilmedi";
 
     let readyHtml = "";
