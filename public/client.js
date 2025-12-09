@@ -516,6 +516,17 @@ function updateGameRoleUI() {
   if (tabRoleMainBtn) tabRoleMainBtn.textContent = roleLabel;
   if (tabRoleSpecialBtn) tabRoleSpecialBtn.textContent = specialLabel;
   if (gameRoleLabel) gameRoleLabel.textContent = roleLabel;
+  if (tabFieldBtn) {
+    if (myRole === "sahaanalizcisi") {
+      tabFieldBtn.style.display = "inline-flex";   // o role görünür
+    } else {
+      tabFieldBtn.style.display = "none";          // diğer rollerde tamamen kaybol
+      // Eğer başka rolde iken hala field tab'ında kalınmışsa, güvenli şekilde ana role tabına dön
+      if (currentGameTab === "field") {
+        setActiveTab("roleMain");
+      }
+    }
+  }
 
   if (inGame) renderCurrentTab();
 }
