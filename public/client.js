@@ -33,7 +33,6 @@ const tabNotesBtn = document.getElementById("tabNotesBtn");
 const tabSettingsBtn = document.getElementById("tabSettingsBtn");
 
 // === SAHA ANALİZCİSİ MODAL ===
-const tabFieldBtn = document.getElementById("tabFieldBtn");
 const fieldTalkModal     = document.getElementById("fieldTalkModal");
 const fieldTalkCloseBtn  = document.getElementById("fieldTalkCloseBtn");
 const fieldTalkForm      = document.getElementById("fieldTalkForm");
@@ -201,7 +200,7 @@ const ROLE_CONFIG = {
   },
   sahaanalizcisi: {
     displayName: "Saha Analizcisi",
-    specialTabLabel: "Saha Haritası",
+    specialTabLabel: "Saha Analizi",
     description: "Şehrin belirli noktalarını analiz ederek ipuçları çıkarır."
   },
     tracker: {
@@ -516,17 +515,7 @@ function updateGameRoleUI() {
   if (tabRoleMainBtn) tabRoleMainBtn.textContent = roleLabel;
   if (tabRoleSpecialBtn) tabRoleSpecialBtn.textContent = specialLabel;
   if (gameRoleLabel) gameRoleLabel.textContent = roleLabel;
-  if (tabFieldBtn) {
-    if (myRole === "sahaanalizcisi") {
-      tabFieldBtn.style.display = "inline-flex";   // o role görünür
-    } else {
-      tabFieldBtn.style.display = "none";          // diğer rollerde tamamen kaybol
-      // Eğer başka rolde iken hala field tab'ında kalınmışsa, güvenli şekilde ana role tabına dön
-      if (currentGameTab === "field") {
-        setActiveTab("roleMain");
-      }
-    }
-  }
+  
 
   if (inGame) renderCurrentTab();
 }
@@ -1251,7 +1240,98 @@ else if (myRole === "kodkırıcı") {
   }
  }
 
+// 2.d) SAHA ANALİZCİSİ — Saha Analizi / Haritası
+    else if (myRole === "sahaanalizcisi") {
+      // BURAYA DAHA ÖNCE currentGameTab === "field" İÇİN YAZDIĞIMIZ HARİTA KODUNU KOYACAĞIZ
+      gameTabContent.innerHTML = `
+        <h3>Saha Analizi</h3>
+        <p style="font-size:12px; color: var(--text-muted); margin-bottom:8px;">
+          Harita üzerindeki işaretli noktalara tıklayarak ipuçları topla. Şimdilik sadece bir nokta aktif.
+        </p>
 
+        <div class="players-box" style="text-align:center;">
+          <div id="fieldMapWrapper"
+               style="position:relative; display:inline-block; max-width:100%;">
+            <img src="/assets/Resim1.png"
+                 id="fieldMapImg"
+                 style="max-width:100%; border-radius:8px; display:block;" />
+          </div>
+          <div style="margin-top:6px; font-size:12px; color:var(--text-muted);">
+            Sadece görünen noktalara tıklanabilir.
+          </div>
+        </div>
+
+        <div id="fieldDetailBox" style="margin-top:12px;"></div>
+      `;
+
+      const wrapper   = document.getElementById("fieldMapWrapper");
+      const detailBox = document.getElementById("fieldDetailBox");
+
+      if (wrapper && detailBox) {
+        Object.values(FIELD_ZONES).forEach((zone) => {
+          if (!zone.rect) return;
+          const r = zone.rect;
+
+          const cx = (r.xMin + r.xMax) / 2;
+          const cy = (r.yMin + r.yMax) / 2;
+
+          const marker = document.createElement("button");
+          marker.type = "button";
+          marker.className = "field-marker";
+          marker.style.position = "absolute";
+          marker.style.left = (cx * 100) + "%";
+          marker.style.top = (cy * 100) + "%";
+          marker.style.transform = "translate(-50%, -50%)";
+          marker.style.width = "14px";
+          marker.style.height = "14px";
+          marker.style.borderRadius = "999px";
+          marker.style.border = "2px solid rgba(255,255,255,0.9)";
+          marker.style.background = "rgba(59,130,246,0.9)";
+          marker.style.boxShadow = "0 0 6px rgba(59,130,246,0.9)";
+          marker.style.cursor = "pointer";
+          marker.style.padding = "0";
+          marker.style.outline = "none";
+
+          marker.title = zone.name || "Bölge";
+
+          marker.addEventListener("click", (e) => {
+            e.stopPropagation();
+
+            fieldCurrentZoneId = zone.id;
+
+            detailBox.innerHTML = `
+              <div class="players-box" style="margin-top:10px;">
+                ${zone.img ? `<img src="${zone.img}" style="max-width:100%; border-radius:8px;" />` : ""}
+                <p style="font-size:13px; margin-top:6px;">${zone.desc || ""}</p>
+
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                  <button id="fieldTalkBtn" class="btn-primary btn-small">Konuş</button>
+                  <button id="fieldBackBtn" class="btn-secondary btn-small">Geri</button>
+                </div>
+              </div>
+            `;
+
+            const talkBtn = document.getElementById("fieldTalkBtn");
+            const backBtn = document.getElementById("fieldBackBtn");
+
+            if (backBtn) {
+              backBtn.addEventListener("click", () => {
+                fieldCurrentZoneId = null;
+                detailBox.innerHTML = "";
+              });
+            }
+
+            if (talkBtn) {
+              talkBtn.addEventListener("click", () => {
+                openFieldTalkModal();
+              });
+            }
+          });
+
+          wrapper.appendChild(marker);
+        });
+      }
+    }
 
 
     // 2.c) Diğer roller için placeholder
@@ -1265,107 +1345,7 @@ else if (myRole === "kodkırıcı") {
       `;
     }
  }
-      // 3) SAHA ANALİZİ TAB'I (field)
-  else if (currentGameTab === "field") {
-    if (myRole !== "sahaanalizcisi") {
-      gameTabContent.innerHTML = `
-        <p style="font-size:13px; color:var(--text-muted);">
-          Bu sekme yalnızca Saha Analizcisi rolü için aktif.
-        </p>
-      `;
-      return;
-    }
-
-    gameTabContent.innerHTML = `
-      <h3>Saha Haritası</h3>
-      <p style="font-size:12px; color: var(--text-muted); margin-bottom:8px;">
-        Harita üzerindeki işaretli noktalara tıklayarak ipuçları topla. Şimdilik sadece bir nokta aktif.
-      </p>
-
-      <div class="players-box" style="text-align:center;">
-        <div id="fieldMapWrapper"
-             style="position:relative; display:inline-block; max-width:100%;">
-          <img src="/assets/Resim1.png"
-               id="fieldMapImg"
-               style="max-width:100%; border-radius:8px; display:block;" />
-        </div>
-        <div style="margin-top:6px; font-size:12px; color:var(--text-muted);">
-          Sadece görünen noktalara tıklanabilir.
-        </div>
-      </div>
-
-      <div id="fieldDetailBox" style="margin-top:12px;"></div>
-    `;
-
-    const wrapper   = document.getElementById("fieldMapWrapper");
-    const detailBox = document.getElementById("fieldDetailBox");
-
-    if (wrapper && detailBox) {
-      Object.values(FIELD_ZONES).forEach((zone) => {
-        if (!zone.rect) return;
-        const r = zone.rect;
-
-        const cx = (r.xMin + r.xMax) / 2;
-        const cy = (r.yMin + r.yMax) / 2;
-
-        const marker = document.createElement("button");
-        marker.type = "button";
-        marker.className = "field-marker";
-        marker.style.position = "absolute";
-        marker.style.left = (cx * 100) + "%";
-        marker.style.top = (cy * 100) + "%";
-        marker.style.transform = "translate(-50%, -50%)";
-        marker.style.width = "14px";
-        marker.style.height = "14px";
-        marker.style.borderRadius = "999px";
-        marker.style.border = "2px solid rgba(255,255,255,0.9)";
-        marker.style.background = "rgba(59,130,246,0.9)";
-        marker.style.boxShadow = "0 0 6px rgba(59,130,246,0.9)";
-        marker.style.cursor = "pointer";
-        marker.style.padding = "0";
-        marker.style.outline = "none";
-
-        marker.title = zone.name || "Bölge";
-
-        marker.addEventListener("click", (e) => {
-          e.stopPropagation();
-
-          fieldCurrentZoneId = zone.id; // aktif bölgeyi sakla
-
-          // Bölge detayını altta göster
-          detailBox.innerHTML = `
-            <div class="players-box" style="margin-top:10px;">
-              ${zone.img ? `<img src="${zone.img}" style="max-width:100%; border-radius:8px;" />` : ""}
-              <p style="font-size:13px; margin-top:6px;">${zone.desc || ""}</p>
-
-              <div style="display:flex; gap:8px; margin-top:8px;">
-                <button id="fieldTalkBtn" class="btn-primary btn-small">Konuş</button>
-                <button id="fieldBackBtn" class="btn-secondary btn-small">Geri</button>
-              </div>
-            </div>
-          `;
-
-          const talkBtn = document.getElementById("fieldTalkBtn");
-          const backBtn = document.getElementById("fieldBackBtn");
-
-          if (backBtn) {
-            backBtn.addEventListener("click", () => {
-              fieldCurrentZoneId = null;
-              detailBox.innerHTML = "";
-            });
-          }
-
-          if (talkBtn) {
-            talkBtn.addEventListener("click", () => {
-              openFieldTalkModal();
-            });
-          }
-        });
-
-        wrapper.appendChild(marker);
-      });
-    }
-  }
+      
 
 
   // 3) ORTAK TAHTA
@@ -1626,7 +1606,6 @@ function createPeerConnection(peerId) {
 if (tabRoleMainBtn) tabRoleMainBtn.addEventListener("click", () => setActiveTab("roleMain"));
 if (tabRoleSpecialBtn) tabRoleSpecialBtn.addEventListener("click", () => setActiveTab("roleSpecial"));
 if (tabSharedBoardBtn) tabSharedBoardBtn.addEventListener("click", () => setActiveTab("sharedBoard"));
-if (tabFieldBtn) tabFieldBtn.addEventListener("click", () => setActiveTab("field"));
 if (tabNotesBtn) tabNotesBtn.addEventListener("click", () => setActiveTab("notes"));
 if (tabSettingsBtn) tabSettingsBtn.addEventListener("click", () => setActiveTab("settings"));
 
