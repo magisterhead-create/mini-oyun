@@ -799,6 +799,20 @@ button:disabled {
   box-shadow: 0 6px 14px rgba(37,99,235,0.4);
   transform: translateY(-1px);
 }
+/* === TRACKER — Timeline Listesi === */
+.tracker-timeline {
+  margin-top: 6px;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--text-main);
+  line-height: 1.45;
+}
+
+.tracker-timeline li {
+  margin-bottom: 3px;
+  list-style-type: "• ";
+}
+
 
 .room-list-top {
   display: flex;
