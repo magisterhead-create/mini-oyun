@@ -1238,7 +1238,7 @@ else if (myRole === "kodkırıcı") {
       showLobbyInfo(`${selected.name} için takip özeti tahtaya aktarıldı.`);
     });
   }
-}
+ }
 
 
 
@@ -1253,7 +1253,7 @@ else if (myRole === "kodkırıcı") {
         </p>
       `;
     }
-    
+ }
       // 3) SAHA ANALİZİ TAB'I (field)
   else if (currentGameTab === "field") {
     if (myRole !== "sahaanalizcisi") {
