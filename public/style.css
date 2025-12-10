@@ -835,3 +835,38 @@ button:disabled {
   font-size: 11px;
   color: var(--text-muted);
 }
+/* === ANALİST — Hipotez Kartları === */
+.analyst-hypo-card {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(55,65,81,0.8);
+  font-size: 12px;
+}
+
+.analyst-hypo-tag {
+  display: inline-block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.analyst-hypo-title {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.analyst-hypo-body {
+  font-size: 12px;
+  color: var(--text-main);
+}
+
+/* Küçük buton */
+.btn-xs {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
