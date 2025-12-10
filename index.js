@@ -644,7 +644,7 @@ io.on("connection", (socket) => {
     if (!room.players[socket.id]) return;
 
     // Şimdilik dört rolü destekliyoruz
-    const allowedRoles = ["kodkırıcı", "polis", "ajan", "güvenlik", "sahaanalizcisi", "tracker"];
+    const allowedRoles = ["kodkırıcı", "polis", "ajan", "güvenlik", "sahaanalizcisi", "tracker", "analist"];
     if (!allowedRoles.includes(role)) {
       return;
     }
