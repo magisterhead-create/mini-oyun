@@ -22,7 +22,7 @@ const cases = {
     id: "restaurant_murder",
     title: "Restoran Cinayeti",
     answer: "garson",
-    roles: ["kodkırıcı", "polis", "sahaanalizcisi", "tracker"],
+    roles: ["kodkırıcı", "polis", "sahaanalizcisi", "tracker", "analist"],
 
     // 🔹 Arka plandaki cinayet dosyası (AI prompt için kullanılacak)
     caseFile: `
