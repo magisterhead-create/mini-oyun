@@ -169,6 +169,10 @@ let notesText = "";
 let codebreakerEvidence = [];
 let codebreakerView = "menu";   // "menu" | "whatsapp" | "calls" | "gallery" | "notes" | "files" | "location"
 
+// Analist — kendi panosu
+let analystTimelineItems = [];      // [{ text }]
+let analystHypothesisCards = [];   // [{ title, detail, tag }]
+
 // Saha Analizcisi — bölge sohbetleri
 let fieldCurrentZoneId = null;      // şu an açık olan bölge
 let fieldConversations = {};        // { zoneId: [ { from:"player"|"npc", text } ] }
@@ -208,6 +212,12 @@ const ROLE_CONFIG = {
     specialTabLabel: "Takip",
     description:
       "Şüphelilerin gün içi hareketlerini takip eden, zaman-konum çakışmalarını ortaya çıkaran rol."
+  },
+  analist: {
+    displayName: "Analist",
+    specialTabLabel: "Analiz Paneli",
+    description:
+      "Takımın getirdiği delilleri gruplayan, çelişkileri ve zaman çizelgesini çıkaran stratejik zihin."
   }
 
 
@@ -501,6 +511,7 @@ function updateMyRoleInfo() {
   else if (myRole === "güvenlik") text = "Rolün: Güvenlik";
   else if (myRole === "sahaanalizcisi") text = "Rolün: Saha Analizcisi";
   else if (myRole === "tracker") text = "Rolün: Tracker";
+  else if (myRole === "analist") text = "Rolün: Analist";
   else text = "Rolün: (henüz seçilmedi)";
 
   if (myRoleInfo) myRoleInfo.textContent = text;
@@ -1332,7 +1343,239 @@ else if (myRole === "kodkırıcı") {
         });
       }
     }
+      
+else if (myRole === "analist") {
+    const timelineHtml =
+      analystTimelineItems.length === 0
+        ? `
+          <div class="setup-note">
+            Henüz zaman çizelgesine öğe eklemedin. Aşağıdaki kutudan
+            "22:15 – Kurban restorana giriyor" gibi notlar ekleyebilirsin.
+          </div>
+        `
+        : `
+          <ul class="tracker-timeline">
+            ${analystTimelineItems
+              .map((it) => `<li>${it.text}</li>`)
+              .join("")}
+          </ul>
+        `;
 
+    const hypoHtml =
+      analystHypothesisCards.length === 0
+        ? `
+          <div class="setup-note">
+            Hipotez panosu boş. Aşağıdaki formdan
+            "Şef ile ortak arasındaki para akışı tutarsız" gibi
+            kısa hipotezler ekle.
+          </div>
+        `
+        : `
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            ${analystHypothesisCards
+              .map(
+                (h, i) => `
+                <div class="analyst-hypo-card">
+                  <div class="analyst-hypo-tag">${h.tag || "Genel"}</div>
+                  <div class="analyst-hypo-title">${h.title}</div>
+                  <div class="analyst-hypo-body">${h.detail}</div>
+                  <button
+                    class="btn-ghost btn-xs"
+                    data-hypo-remove="${i}"
+                    style="margin-top:4px;"
+                  >
+                    Sil
+                  </button>
+                </div>
+              `
+              )
+              .join("")}
+          </div>
+        `;
+
+    // Ortak tahtadaki metin
+    const sharedText = (sharedBoardText || "").trim();
+
+    gameTabContent.innerHTML = `
+      <h3>Analist — Delil ve Hipotez Paneli</h3>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">
+        Takımın getirdiği delilleri grupla, zaman çizelgesi çıkar ve
+        bir sonraki tur için yönlendirici hipotezler üret.
+      </p>
+
+      <div style="display:grid; grid-template-columns:1.3fr 1.1fr; gap:10px;">
+        <!-- SOL SÜTUN: Tahta + Zaman Çizelgesi -->
+        <div class="players-box" style="min-height:260px; display:flex; flex-direction:column; gap:8px;">
+          <!-- Ortak Tahta Özet -->
+          <div>
+            <div class="label">Ortak Tahtadan Gelen Deliller</div>
+            <textarea
+              id="analystBoardPreview"
+              class="board-textarea"
+              style="min-height:80px; margin-top:4px;"
+              readonly
+            >${sharedText || "Ortak Tahta henüz boş. Diğer roller delilleri ekledikçe burada gözükecek."}</textarea>
+          </div>
+
+          <!-- Zaman Çizelgesi -->
+          <div>
+            <div class="label" style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Zaman Çizelgesi</span>
+              <button id="analystTimelineClearBtn" class="btn-ghost btn-xs">
+                Temizle
+              </button>
+            </div>
+            ${timelineHtml}
+            <div style="display:flex; gap:6px; margin-top:6px;">
+              <input
+                id="analystTimelineInput"
+                placeholder="Örn: 22:15 – Kurban restorana giriyor"
+                style="margin-top:0; flex:1;"
+              />
+              <button id="analystTimelineAddBtn" class="btn-primary btn-small">
+                Ekle
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SAĞ SÜTUN: Hipotez Panosu -->
+        <div class="players-box" style="min-height:260px; display:flex; flex-direction:column; gap:8px;">
+          <div class="label" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Hipotez Panosu</span>
+            <button id="analystPushSummaryBtn" class="btn-secondary btn-xs">
+              Özeti Tahtaya Gönder
+            </button>
+          </div>
+
+          <div style="flex:1; overflow-y:auto; margin-top:4px;">
+            ${hypoHtml}
+          </div>
+
+          <div style="margin-top:8px;">
+            <input
+              id="analystHypoTitle"
+              placeholder="Kısa başlık (örn: Şefin alibisinde boşluk)"
+              style="margin-top:0; margin-bottom:4px;"
+            />
+            <input
+              id="analystHypoTag"
+              placeholder="Etiket (örn: Çelişki, Zaman, Para)"
+              style="margin-top:0; margin-bottom:4px;"
+            />
+            <textarea
+              id="analystHypoDetail"
+              class="board-textarea"
+              style="min-height:70px;"
+              placeholder="Detay: Hangi deliller çelişiyor, hangi boşluk var, kime baktırılmalı?"
+            ></textarea>
+            <button
+              id="analystHypoAddBtn"
+              class="btn-primary btn-small"
+              style="margin-top:6px; width:100%;"
+            >
+              Hipotez Ekle
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // === EVENTLER ===
+
+    // Zaman çizelgesi ekle
+    const tlInput = document.getElementById("analystTimelineInput");
+    const tlAddBtn = document.getElementById("analystTimelineAddBtn");
+    if (tlAddBtn && tlInput) {
+      tlAddBtn.addEventListener("click", () => {
+        const text = (tlInput.value || "").trim();
+        if (!text) return;
+        analystTimelineItems.push({ text });
+        tlInput.value = "";
+        renderCurrentTab();
+      });
+
+      tlInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          tlAddBtn.click();
+        }
+      });
+    }
+
+    // Zaman çizelgesini temizle
+    const tlClearBtn = document.getElementById("analystTimelineClearBtn");
+    if (tlClearBtn) {
+      tlClearBtn.addEventListener("click", () => {
+        analystTimelineItems = [];
+        renderCurrentTab();
+      });
+    }
+
+    // Hipotez ekle
+    const hypoTitleEl = document.getElementById("analystHypoTitle");
+    const hypoTagEl = document.getElementById("analystHypoTag");
+    const hypoDetailEl = document.getElementById("analystHypoDetail");
+    const hypoAddBtn = document.getElementById("analystHypoAddBtn");
+
+    if (hypoAddBtn && hypoTitleEl && hypoDetailEl) {
+      hypoAddBtn.addEventListener("click", () => {
+        const title = (hypoTitleEl.value || "").trim();
+        const detail = (hypoDetailEl.value || "").trim();
+        const tag = (hypoTagEl && hypoTagEl.value.trim()) || "";
+
+        if (!title || !detail) return;
+
+        analystHypothesisCards.push({ title, detail, tag });
+        hypoTitleEl.value = "";
+        hypoDetailEl.value = "";
+        if (hypoTagEl) hypoTagEl.value = "";
+        renderCurrentTab();
+      });
+    }
+
+    // Hipotez sil
+    const removeBtns = gameTabContent.querySelectorAll("[data-hypo-remove]");
+    removeBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = parseInt(btn.getAttribute("data-hypo-remove"), 10);
+        if (Number.isNaN(idx)) return;
+        analystHypothesisCards.splice(idx, 1);
+        renderCurrentTab();
+      });
+    });
+
+    // Özeti tahtaya gönder
+    const pushSummaryBtn = document.getElementById("analystPushSummaryBtn");
+    if (pushSummaryBtn) {
+      pushSummaryBtn.addEventListener("click", () => {
+        if (analystTimelineItems.length === 0 && analystHypothesisCards.length === 0) {
+          showLobbyInfo("Önce zaman çizelgesine veya hipotez panosuna bir şeyler eklemelisin.");
+          return;
+        }
+
+        const lines = [];
+        if (analystTimelineItems.length > 0) {
+          lines.push("Analist – Zaman Çizelgesi Özeti:");
+          analystTimelineItems.forEach((it) => lines.push("• " + it.text));
+        }
+
+        if (analystHypothesisCards.length > 0) {
+          lines.push("");
+          lines.push("Analist – Hipotezler:");
+          analystHypothesisCards.forEach((h, i) => {
+            lines.push(`${i + 1}) [${h.tag || "Genel"}] ${h.title}`);
+            lines.push("   " + h.detail);
+          });
+        }
+
+        const block = lines.join("\n");
+        addEvidenceToNotes(block);
+        pushEvidenceToBoard(block);
+        showLobbyInfo("Analist özeti ortak tahtaya gönderildi.");
+      });
+    }
+  }
 
     // 2.c) Diğer roller için placeholder
     else {
@@ -2047,6 +2290,7 @@ else if (p.role === "ajan") roleLabel = "Ajan";
 else if (p.role === "güvenlik") roleLabel = "Güvenlik";
 else if (p.role === "sahaanalizcisi") roleLabel = "Saha Analizcisi";
 else if (p.role === "tracker") roleLabel = "Tracker";
+else if (p.role === "analist") roleLabel = "Analist";
 else roleLabel = "Rol seçilmedi";
 
     let readyHtml = "";
